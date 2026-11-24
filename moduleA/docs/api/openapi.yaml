@@ -1,0 +1,423 @@
+openapi: 3.0.3
+info:
+  title: ТОиР-Проф REST API
+  description: Единый программный интерфейс системы управления ТОиР АО «ПМЗ»
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Локальный сервер разработки
+
+paths:
+  /auth/login:
+    post:
+      summary: Вход в систему и получение JWT токена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: ivanov.ii@pmz.ru
+                password:
+                  type: string
+                  example: password123
+      responses:
+        '200':
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/me:
+    get:
+      summary: Получение данных текущего пользователя
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /equipment:
+    get:
+      summary: Реестр оборудования с фильтрацией и поиском
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: workshop_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentListResponse'
+    post:
+      summary: Добавление новой единицы оборудования
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentCreateRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleEquipmentResponse'
+
+  /equipment/{id}:
+    get:
+      summary: Детальная карточка оборудования с историей
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleEquipmentResponse'
+
+  /work-orders:
+    get:
+      summary: Реестр заявок на ТОиР с фильтрацией
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: workshop_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrderListResponse'
+    post:
+      summary: Создание заявки на ремонт (аварийной или текущей)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkOrderCreateRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleWorkOrderResponse'
+
+  /work-orders/{id}/assign:
+    put:
+      summary: Назначение ремонтной бригады с контролем занятости
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [team_id]
+              properties:
+                team_id:
+                  type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleWorkOrderResponse'
+        '409':
+          description: Бригада занята в указанный период
+
+  /work-orders/{id}/close:
+    put:
+      summary: Закрытие и утверждение заявки мастером цеха
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                report_text:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    UnauthorizedError:
+      description: Отсутствует или недействителен JWT токен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+
+  schemas:
+    ApiResponseBase:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+        message:
+          type: string
+        error_code:
+          type: string
+          nullable: true
+
+    ApiErrorResponse:
+      type: object
+      required: [success, data, message, error_code]
+      properties:
+        success:
+          type: boolean
+          example: false
+        data:
+          nullable: true
+          example: null
+        message:
+          type: string
+          example: Недостаточно прав для выполнения операции
+        error_code:
+          type: string
+          example: FORBIDDEN
+
+    AuthResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - properties:
+            data:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                token_type:
+                  type: string
+                  example: Bearer
+                user:
+                  $ref: '#/components/schemas/UserDTO'
+
+    UserDTO:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role_code:
+          type: string
+        workshop_id:
+          type: integer
+          nullable: true
+
+    UserResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - properties:
+            data:
+              $ref: '#/components/schemas/UserDTO'
+
+    EquipmentCreateRequest:
+      type: object
+      required: [workshop_id, inventory_number, equipment_name, model_name, commissioning_date, operation_date]
+      properties:
+        workshop_id:
+          type: integer
+        inventory_number:
+          type: string
+          example: EQ-014
+        equipment_name:
+          type: string
+          example: Сверлильный станок 2Н135
+        model_name:
+          type: string
+          example: 2Н135
+        commissioning_date:
+          type: string
+          format: date
+        operation_date:
+          type: string
+          format: date
+
+    SingleEquipmentResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - properties:
+            data:
+              type: object
+              properties:
+                equipment_id:
+                  type: integer
+                inventory_number:
+                  type: string
+                equipment_name:
+                  type: string
+                model_name:
+                  type: string
+                status_code:
+                  type: string
+
+    EquipmentListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - properties:
+            data:
+              type: array
+              items:
+                type: object
+
+    WorkOrderCreateRequest:
+      type: object
+      required: [equipment_id, order_type, priority_id, description, planned_start_date, planned_end_date]
+      properties:
+        equipment_id:
+          type: integer
+        order_type:
+          type: string
+          enum: [emergency, planned, current]
+        priority_id:
+          type: integer
+        description:
+          type: string
+        failure_reason:
+          type: string
+        planned_start_date:
+          type: string
+          format: date-time
+        planned_end_date:
+          type: string
+          format: date-time
+
+    WorkOrderListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - properties:
+            data:
+              type: array
+              items:
+                type: object
+
+    SingleWorkOrderResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - properties:
+            data:
+              type: object
+              properties:
+                work_order_id:
+                  type: integer
+                order_number:
+                  type: string
+                status_code:
+                  type: string
+
+    KpiDashboardResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - properties:
+            data:
+              type: object
+              properties:
+                total_equipment:
+                  type: integer
+                  example: 13
+                in_operation:
+                  type: integer
+                  example: 10
+                under_repair:
+                  type: integer
+                  example: 2
+                in_downtime:
+                  type: integer
+                  example: 1
+                active_orders:
+                  type: integer
+                  example: 3
+                total_downtime_hours_month:
+                  type: number
+                  example: 16.75
+
+              schema:
+                $ref: '#/components/schemas/SingleWorkOrderResponse'
+
+  /analytics/kpi:
+    get:
+      summary: Сводные показатели KPI для главного дашборда
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpiDashboardResponse'

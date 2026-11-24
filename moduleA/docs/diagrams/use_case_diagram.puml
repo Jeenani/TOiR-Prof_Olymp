@@ -1,0 +1,105 @@
+@startuml
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam roundcorner 10
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+
+title Диаграмма вариантов использования (Use Case Diagram)\nИнформационная система управления ТОиР «ТОиР-Проф»
+
+' Определение акторов предметной области
+actor "Мастер цеха" as Master #LightGreen
+actor "Инженер по ТОиР" as Engineer #LightSkyBlue
+actor "Член бригады / Бригадир" as Worker #LightYellow
+actor "Руководитель / Главный инженер" as Director #Pink
+actor "Администратор системы" as Admin #LightGray
+
+rectangle "Система управления ТОиР «ТОиР-Проф»" as SystemBoundary {
+
+    ' Базовые системные прецеденты
+    usecase "Аутентификация в системе" as UC_Auth
+    usecase "Управление профилем" as UC_Profile
+
+    ' Контур оборудования
+    usecase "Просмотр реестра оборудования" as UC_EqList
+    usecase "Просмотр паспорта и истории оборудования" as UC_EqDetail
+    usecase "Регистрация нового оборудования" as UC_EqCreate
+    usecase "Списание оборудования" as UC_EqDecom
+
+    ' Контур заявок
+    usecase "Создание аварийной заявки" as UC_OrderCreateEmergency
+    usecase "Генерация плановой заявки" as UC_OrderCreatePlanned
+    usecase "Назначение ремонтной бригады" as UC_OrderAssign
+    usecase "Проверка загруженности бригады" as UC_CheckTeamBusy
+    usecase "Фиксация выполнения работ" as UC_OrderWork
+    usecase "Списание материалов со склада" as UC_MaterialWriteoff
+    usecase "Проверка складских остатков" as UC_CheckStock
+    usecase "Закрытие и утверждение заявки" as UC_OrderClose
+    usecase "Расчет времени простоя" as UC_CalcDowntime
+
+    ' Контур графиков ТО
+    usecase "Просмотр графика плановых ТО" as UC_ScheduleView
+    usecase "Формирование и корректировка графика ТО" as UC_ScheduleManage
+    usecase "Расчет следующей плановой даты ТО" as UC_CalcNextDate
+
+    ' Контур материалов и складов
+    usecase "Просмотр остатков материалов" as UC_MaterialList
+    usecase "Контроль неснижаемого остатка" as UC_MaterialAlert
+
+    ' Контур аналитики и отчетности
+    usecase "Просмотр дашборда KPI и простоев" as UC_Dashboard
+    usecase "Формирование сводных отчетов по цехам" as UC_ReportWorkshop
+    usecase "Экспорт отчетов в PDF / Excel" as UC_ReportExport
+
+    ' Контур администрирования
+    usecase "Управление пользователями и ролями" as UC_UserManage
+    usecase "Настройка справочников (НСИ)" as UC_NsiManage
+    usecase "Просмотр журнала аудита" as UC_AuditLog
+}
+
+' Отношения акторов с прецедентами
+Master --> UC_Auth
+Master --> UC_EqList
+Master --> UC_EqDetail
+Master --> UC_OrderCreateEmergency
+Master --> UC_OrderAssign
+Master --> UC_OrderClose
+Master --> UC_MaterialList
+
+Engineer --> UC_Auth
+Engineer --> UC_ScheduleView
+Engineer --> UC_ScheduleManage
+Engineer --> UC_EqList
+Engineer --> UC_EqDetail
+Engineer --> UC_Dashboard
+Engineer --> UC_ReportWorkshop
+
+Worker --> UC_Auth
+Worker --> UC_OrderWork
+Worker --> UC_MaterialList
+
+Director --> UC_Auth
+Director --> UC_Dashboard
+Director --> UC_ReportWorkshop
+Director --> UC_ReportExport
+
+Admin --> UC_Auth
+Admin --> UC_UserManage
+Admin --> UC_NsiManage
+Admin --> UC_EqCreate
+Admin --> UC_EqDecom
+Admin --> UC_AuditLog
+
+' Отношения <<include>>
+UC_OrderAssign ..> UC_CheckTeamBusy : <<include>>
+UC_OrderClose ..> UC_CalcDowntime : <<include>>
+UC_OrderWork ..> UC_MaterialWriteoff : <<include>>
+UC_MaterialWriteoff ..> UC_CheckStock : <<include>>
+UC_ScheduleManage ..> UC_CalcNextDate : <<include>>
+
+' Отношения <<extend>>
+UC_OrderCreatePlanned ..> UC_OrderCreateEmergency : <<extend>>
+UC_ReportExport ..> UC_ReportWorkshop : <<extend>>
+UC_MaterialAlert ..> UC_MaterialList : <<extend>>
+
+@enduml

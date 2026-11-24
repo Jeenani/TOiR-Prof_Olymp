@@ -1,0 +1,30 @@
+# macOS
+__MACOSX/
+.DS_Store
+
+# Temporary files
+*.log
+*.tmp
+
+# IDE
+.vs/
+.vscode/
+
+# .NET
+**/bin/
+**/obj/
+
+# Node.js
+**/node_modules/
+**/dist/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Database
+database/plantuml.jar
+moduleA/database/apply_setup.py
+
+# Project folders
+/08-Приложения/

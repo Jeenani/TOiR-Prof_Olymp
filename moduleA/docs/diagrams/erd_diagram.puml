@@ -1,0 +1,231 @@
+@startuml
+skinparam roundcorner 5
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title ER-диаграмма реляционной базы данных «ТОиР-Проф» (3НФ)
+
+entity "roles" as roles {
+    * role_id : SERIAL <<PK>>
+    --
+    * role_code : VARCHAR(50) <<UNIQUE>>
+    * role_name : VARCHAR(100)
+    role_description : TEXT
+}
+
+entity "workshops" as workshops {
+    * workshop_id : SERIAL <<PK>>
+    --
+    * workshop_code : VARCHAR(50) <<UNIQUE>>
+    * workshop_name : VARCHAR(150)
+    workshop_description : TEXT
+}
+
+entity "repair_teams" as repair_teams {
+    * team_id : SERIAL <<PK>>
+    --
+    workshop_id : INT <<FK>>
+    * team_code : VARCHAR(50) <<UNIQUE>>
+    * team_name : VARCHAR(150)
+    * specialization : VARCHAR(100)
+}
+
+entity "users" as users {
+    * user_id : SERIAL <<PK>>
+    --
+    * role_id : INT <<FK>>
+    workshop_id : INT <<FK>>
+    * email : VARCHAR(150) <<UNIQUE>>
+    * phone : VARCHAR(50) <<UNIQUE>>
+    * first_name : VARCHAR(100)
+    * last_name : VARCHAR(100)
+    patronymic : VARCHAR(100)
+    * password_hash : VARCHAR(255)
+    * is_active : BOOLEAN
+    * created_at : TIMESTAMP
+}
+
+entity "team_members" as team_members {
+    * team_id : INT <<PK, FK>>
+    * user_id : INT <<PK, FK>>
+    --
+    * is_team_leader : BOOLEAN
+    * joined_at : TIMESTAMP
+}
+
+entity "equipment_statuses" as equipment_statuses {
+    * status_id : SERIAL <<PK>>
+    --
+    * status_code : VARCHAR(50) <<UNIQUE>>
+    * status_name : VARCHAR(100)
+    description : TEXT
+}
+
+entity "equipment" as equipment {
+    * equipment_id : SERIAL <<PK>>
+    --
+    * workshop_id : INT <<FK>>
+    * status_id : INT <<FK>>
+    created_by_user_id : INT <<FK>>
+    updated_by_user_id : INT <<FK>>
+    * inventory_number : VARCHAR(100) <<UNIQUE>>
+    * equipment_name : VARCHAR(200)
+    * model_name : VARCHAR(100)
+    serial_number : VARCHAR(100)
+entity "equipment_status_history" as equipment_status_history {
+    * history_id : SERIAL <<PK>>
+    --
+    * equipment_id : INT <<FK>>
+    * status_id : INT <<FK>>
+    changed_by_user_id : INT <<FK>>
+    reason : TEXT
+    * changed_at : TIMESTAMP
+}
+
+entity "maintenance_types" as maintenance_types {
+    * maintenance_type_id : SERIAL <<PK>>
+    --
+    * type_code : VARCHAR(50) <<UNIQUE>>
+    * type_name : VARCHAR(100)
+    * periodicity_days : INT
+    * standard_duration_hours : NUMERIC(6,2)
+    * requires_stop : BOOLEAN
+    description : TEXT
+    * is_active : BOOLEAN
+}
+
+entity "maintenance_schedules" as maintenance_schedules {
+    * schedule_id : SERIAL <<PK>>
+    --
+    * equipment_id : INT <<FK>>
+    * maintenance_type_id : INT <<FK>>
+    assigned_team_id : INT <<FK>>
+    * planned_date : DATE
+    * schedule_status : VARCHAR(50)
+    * created_at : TIMESTAMP
+}
+
+entity "work_order_statuses" as work_order_statuses {
+    * order_status_id : SERIAL <<PK>>
+    --
+    * status_code : VARCHAR(50) <<UNIQUE>>
+    * status_name : VARCHAR(100)
+}
+
+entity "work_order_priorities" as work_order_priorities {
+    * priority_id : SERIAL <<PK>>
+    --
+    * priority_code : VARCHAR(50) <<UNIQUE>>
+    * priority_name : VARCHAR(100)
+}
+
+entity "work_orders" as work_orders {
+    * work_order_id : SERIAL <<PK>>
+    --
+    * order_number : VARCHAR(50) <<UNIQUE>>
+    * order_type : VARCHAR(50)
+    * priority_id : INT <<FK>>
+    * order_status_id : INT <<FK>>
+    * equipment_id : INT <<FK>>
+    * master_user_id : INT <<FK>>
+    assigned_team_id : INT <<FK>>
+    schedule_id : INT <<FK>>
+    * description : TEXT
+    failure_reason : TEXT
+    report_text : TEXT
+    * planned_start_date : TIMESTAMP
+    * planned_end_date : TIMESTAMP
+    actual_start_date : TIMESTAMP
+    actual_end_date : TIMESTAMP
+    downtime_hours : NUMERIC(8,2)
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "warehouses" as warehouses {
+    * warehouse_id : SERIAL <<PK>>
+    --
+    * warehouse_code : VARCHAR(50) <<UNIQUE>>
+    * warehouse_name : VARCHAR(150)
+    location_description : TEXT
+}
+
+entity "materials" as materials {
+    * material_id : SERIAL <<PK>>
+    --
+    * warehouse_id : INT <<FK>>
+    * material_code : VARCHAR(50) <<UNIQUE>>
+    * material_name : VARCHAR(200)
+    * unit_of_measure : VARCHAR(20)
+    * current_stock : NUMERIC(10,2)
+    * minimum_stock : NUMERIC(10,2)
+    storage_cell : VARCHAR(50)
+    * unit_price : NUMERIC(12,2)
+    supplier_name : VARCHAR(150)
+    * created_at : TIMESTAMP
+}
+
+entity "work_order_materials" as work_order_materials {
+    * work_order_id : INT <<PK, FK>>
+    * material_id : INT <<PK, FK>>
+    --
+    * quantity_used : NUMERIC(10,2)
+    * historical_unit_price : NUMERIC(12,2)
+    * used_at : TIMESTAMP
+    comment_text : TEXT
+}
+
+entity "audit_logs" as audit_logs {
+    * log_id : SERIAL <<PK>>
+    --
+    user_id : INT <<FK>>
+    * entity_name : VARCHAR(100)
+    * entity_id : INT
+    * action_type : VARCHAR(50)
+    old_value : JSONB
+    new_value : JSONB
+    * logged_at : TIMESTAMP
+}
+
+' Связи между таблицами (1:N и M:N)
+roles ||--o{ users : "role_id"
+workshops ||--o{ users : "workshop_id"
+workshops ||--o{ repair_teams : "workshop_id"
+workshops ||--o{ equipment : "workshop_id"
+
+repair_teams ||--|{ team_members : "team_id"
+users ||--|{ team_members : "user_id"
+
+equipment_statuses ||--o{ equipment : "status_id"
+equipment ||--o{ equipment_status_history : "equipment_id"
+equipment_statuses ||--o{ equipment_status_history : "status_id"
+
+equipment ||--o{ maintenance_schedules : "equipment_id"
+maintenance_types ||--o{ maintenance_schedules : "maintenance_type_id"
+repair_teams ||--o{ maintenance_schedules : "assigned_team_id"
+
+work_order_statuses ||--o{ work_orders : "order_status_id"
+work_order_priorities ||--o{ work_orders : "priority_id"
+equipment ||--o{ work_orders : "equipment_id"
+users ||--o{ work_orders : "master_user_id"
+repair_teams ||--o{ work_orders : "assigned_team_id"
+maintenance_schedules ||--o{ work_orders : "schedule_id"
+
+warehouses ||--o{ materials : "warehouse_id"
+work_orders ||--|{ work_order_materials : "work_order_id"
+materials ||--|{ work_order_materials : "material_id"
+
+users ||--o{ audit_logs : "user_id"
+
+@enduml
+
+    manufacturer : VARCHAR(150)
+    warranty_until : DATE
+    passport_url : VARCHAR(255)
+    * commissioning_date : DATE
+    * operation_date : DATE
+    decommissioning_date : DATE
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}

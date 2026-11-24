@@ -1,0 +1,209 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+title Диаграмма классов (Class Diagram)\nОбъектная модель системы «ТОиР-Проф»
+
+class Role {
+    + role_id : int
+    + role_code : string
+    + role_name : string
+    + role_description : string
+    + getPermissions() : List<string>
+}
+
+class Workshop {
+    + workshop_id : int
+    + workshop_code : string
+    + workshop_name : string
+    + workshop_description : string
+    + getEquipmentList() : List<Equipment>
+    + getActiveOrders() : List<WorkOrder>
+}
+
+class User {
+    + user_id : int
+    + role_id : int
+    + workshop_id : int?
+    + email : string
+    + phone : string
+    + first_name : string
+    + last_name : string
+    + patronymic : string
+    + password_hash : string
+    + is_active : bool
+    + created_at : DateTime
+    + getFullName() : string
+    + verifyPassword(password: string) : bool
+    + hasPermission(permission: string) : bool
+}
+
+class RepairTeam {
+    + team_id : int
+    + team_code : string
+    + team_name : string
+    + specialization : string
+    + workshop_id : int?
+    + isAvailable(startTime: DateTime, endTime: DateTime) : bool
+    + getMembers() : List<User>
+}
+
+class TeamMember {
+    + team_id : int
+    + user_id : int
+    + is_team_leader : bool
+    + joined_at : DateTime
+}
+
+class EquipmentStatus {
+    + status_id : int
+    + status_code : string
+    + status_name : string
+    + description : string
+}
+
+class Equipment {
+    + equipment_id : int
+    + workshop_id : int
+    + status_id : int
+    + inventory_number : string
+    + equipment_name : string
+    + model_name : string
+    + serial_number : string
+    + manufacturer : string
+    + warranty_until : Date?
+    + passport_url : string
+    + commissioning_date : Date
+    + operation_date : Date
+    + decommissioning_date : Date?
+    + created_at : DateTime
+    + updated_at : DateTime
+    + calculateDowntime(startDate: DateTime, endDate: DateTime) : decimal
+    + canChangeStatus(newStatusId: int) : bool
+    + getMaintenanceHistory() : List<WorkOrder>
+}
+
+class MaintenanceType {
+    + maintenance_type_id : int
+    + type_code : string
+    + type_name : string
+    + periodicity_days : int
+    + standard_duration_hours : decimal
+    + requires_stop : bool
+    + is_active : bool
+    + calculateNextDate(lastDate: Date) : Date
+}
+
+class MaintenanceSchedule {
+    + schedule_id : int
+    + equipment_id : int
+    + maintenance_type_id : int
+    + assigned_team_id : int?
+    + planned_date : Date
+    + schedule_status : string
+    + created_at : DateTime
+    + generateWorkOrder() : WorkOrder
+    + isOverdue() : bool
+}
+
+class WorkOrder {
+    + work_order_id : int
+    + order_number : string
+    + order_type : string
+    + priority_id : int
+    + order_status_id : int
+    + equipment_id : int
+    + master_user_id : int
+    + assigned_team_id : int?
+    + schedule_id : int?
+    + description : string
+    + failure_reason : string
+    + report_text : string
+    + planned_start_date : DateTime
+    + planned_end_date : DateTime
+    + actual_start_date : DateTime?
+    + actual_end_date : DateTime?
+    + downtime_hours : decimal
+    + created_at : DateTime
+    + updated_at : DateTime
+    + assignTeam(teamId: int) : void
+    + startWork() : void
+    + completeWork(report: string) : void
+    + closeOrder() : void
+    + cancelOrder(reason: string) : void
+    + calculateMaterialCost() : decimal
+}
+
+class Warehouse {
+    + warehouse_id : int
+    + warehouse_code : string
+    + warehouse_name : string
+    + location_description : string
+    + getInventory() : List<Material>
+}
+
+class Material {
+    + material_id : int
+    + warehouse_id : int
+    + material_code : string
+    + material_name : string
+    + unit_of_measure : string
+    + current_stock : decimal
+    + minimum_stock : decimal
+    + storage_cell : string
+    + unit_price : decimal
+    + supplier_name : string
+    + isLowStock() : bool
+    + reserve(quantity: decimal) : bool
+    + deduct(quantity: decimal) : void
+}
+
+class WorkOrderMaterial {
+    + work_order_id : int
+    + material_id : int
+    + quantity_used : decimal
+    + historical_unit_price : decimal
+    + used_at : DateTime
+    + comment_text : string
+    + getTotalCost() : decimal
+}
+
+class AuditLog {
+    + log_id : int
+    + user_id : int?
+    + entity_name : string
+    + entity_id : int
+    + action_type : string
+    + old_value : string
+    + new_value : string
+    + logged_at : DateTime
+}
+
+' Отношения между классами
+Role "1" <-- "0..*" User : belongs_to
+Workshop "1" <-- "0..*" User : assigned_to
+Workshop "1" <-- "0..*" RepairTeam : based_in
+Workshop "1" <-- "0..*" Equipment : located_in
+
+RepairTeam "1" *-- "1..*" TeamMember : consists_of
+User "1" <-- "0..*" TeamMember : includes
+
+EquipmentStatus "1" <-- "0..*" Equipment : has_status
+Equipment "1" *-- "0..*" MaintenanceSchedule : schedules
+MaintenanceType "1" <-- "0..*" MaintenanceSchedule : type_of
+RepairTeam "0..1" <-- "0..*" MaintenanceSchedule : executes
+
+Equipment "1" *-- "0..*" WorkOrder : maintenance_for
+User "1" <-- "0..*" WorkOrder : created_by_master
+RepairTeam "0..1" <-- "0..*" WorkOrder : performed_by
+MaintenanceSchedule "0..1" <-- "0..1" WorkOrder : based_on
+
+Warehouse "1" *-- "0..*" Material : stored_in
+WorkOrder "1" *-- "0..*" WorkOrderMaterial : consumes
+Material "1" <-- "0..*" WorkOrderMaterial : item_ref
+
+User "0..1" <-- "0..*" AuditLog : initiated_by
+
+@enduml

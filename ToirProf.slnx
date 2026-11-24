@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/moduleA/" />
+  <Folder Name="/moduleA/src/">
+    <Project Path="moduleA/src/ToirProf.Api/ToirProf.Api.csproj" />
+    <Project Path="moduleA/src/ToirProf.Blazor/ToirProf.Blazor.csproj" />
+    <Project Path="moduleA/src/ToirProf.Domain/ToirProf.Domain.csproj" />
+  </Folder>
+</Solution>
