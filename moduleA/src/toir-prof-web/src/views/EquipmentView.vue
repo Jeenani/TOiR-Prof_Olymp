@@ -79,6 +79,12 @@ async function submitCreate() {
   } catch (err) { toast.error(err.message || 'Ошибка создания'); }
 }
 
+function handleSort(col) {
+  if (sortBy.value === col) sortDesc.value = !sortDesc.value;
+  else { sortBy.value = col; sortDesc.value = false; }
+  loadData();
+}
+
 onMounted(() => { loadData(); });
 </script>
 
@@ -118,8 +124,8 @@ onMounted(() => { loadData(); });
         <table class="data-table">
           <thead>
             <tr>
-              <th>Инв. №</th>
-              <th>Наименование</th>
+              <th @click="handleSort('inventoryNumber')">Инв. № {{ sortBy === 'inventoryNumber' ? (sortDesc ? '▼' : '▲') : '' }}</th>
+              <th @click="handleSort('equipmentName')">Наименование {{ sortBy === 'equipmentName' ? (sortDesc ? '▼' : '▲') : '' }}</th>
               <th>Модель</th>
               <th>Цех</th>
               <th>Статус</th>
@@ -150,6 +156,10 @@ onMounted(() => { loadData(); });
       <div class="pagination-bar">
         <div>Всего: {{ total }} единиц оборудования</div>
         <div class="pagination-controls">
+          <label>Строк:</label>
+          <select v-model="pageSize" @change="page = 1; loadData()" class="form-select" style="width: 70px;">
+            <option :value="25">25</option><option :value="50">50</option><option :value="100">100</option>
+          </select>
           <button class="page-btn" :disabled="page <= 1" @click="page--; loadData()">‹</button>
           <span>Стр. {{ page }} из {{ totalPages }}</span>
           <button class="page-btn" :disabled="page >= totalPages" @click="page++; loadData()">›</button>
@@ -247,11 +257,3 @@ onMounted(() => { loadData(); });
     </div>
   </div>
 </template>
-
-<style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
-.page-title { font-size: 22px; font-weight: 800; color: #f8fafc; }
-.page-sub { font-size: 13px; color: #94a3b8; }
-.detail-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
-.detail-val { font-size: 14px; font-weight: 600; color: #f8fafc; }
-</style>

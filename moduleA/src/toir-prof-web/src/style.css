@@ -173,6 +173,58 @@ body {
 .modal-body { padding: 24px; }
 .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 12px; }
 
+.text-success { color: #34d399 !important; }
+.text-warning { color: #fbbf24 !important; }
+.text-danger { color: #f87171 !important; }
+.text-blue { color: #38bdf8 !important; }
+
+/* Shared Page & Utility Classes */
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
+.page-title { font-size: 22px; font-weight: 800; color: var(--text-main); }
+.page-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.chart-wrapper { position: relative; height: 250px; }
+.chart-wrapper-sm { position: relative; height: 185px; }
+.kpi-unit { font-size: 14px; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+.detail-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+.detail-val { font-size: 14px; font-weight: 600; color: var(--text-main); }
+.detail-box { background: var(--bg-main); padding: 10px 12px; border-radius: 6px; font-size: 13px; color: #e2e8f0; }
+.order-link { color: #38bdf8; text-decoration: none; font-weight: 700; cursor: pointer; }
+.order-link:hover { text-decoration: underline; }
+.type-tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+.tag-red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.tag-green { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.templates-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.template-chip { background: var(--bg-surface); border: 1px solid #475569; color: #38bdf8; font-size: 12px; padding: 4px 10px; border-radius: 14px; cursor: pointer; }
+.template-chip:hover { background: #334155; }
+
+/* Notifications & Search Helpers */
+.no-results { padding: 12px; font-size: 13px; color: var(--text-muted); text-align: center; }
+.notifications-wrapper { position: relative; }
+.icon-btn { position: relative; background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 15px; color: var(--text-main); }
+.badge-count { position: absolute; top: -6px; right: -6px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
+.notifications-dropdown { position: absolute; right: 0; top: 42px; width: 300px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); z-index: 1000; overflow: hidden; }
+.notif-header { display: flex; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 700; }
+.notif-count { color: #38bdf8; }
+.notif-item { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.notif-title { font-weight: 700; color: var(--text-main); }
+.notif-desc { color: var(--text-muted); margin: 2px 0; }
+.notif-time { font-size: 10px; color: #64748b; }
+
+/* Monthly Calendar Strip */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-day { background: var(--bg-main); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; min-height: 52px; cursor: pointer; font-size: 12px; transition: border-color 0.15s; }
+.cal-day:hover, .cal-day.active { border-color: var(--primary); background: rgba(2, 132, 199, 0.12); }
+.cal-dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.cal-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+@media (max-width: 1024px) {
+  .navbar-center { max-width: 260px; margin: 0 12px; }
+  .logo-sub, .user-info { display: none; }
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
 /* Skeletons & Spinners (R140) */
 .spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

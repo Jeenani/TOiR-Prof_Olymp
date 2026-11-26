@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { api } from '../services/api';
 import { useToastStore } from '../stores/toastStore';
 
@@ -13,6 +13,20 @@ const isLoading = ref(false);
 
 const filterMonth = ref(new Date().getMonth() + 1);
 const filterYear = ref(2027);
+const selectedDay = ref(null);
+
+const filteredSchedules = computed(() => {
+  if (!selectedDay.value) return schedules.value;
+  return schedules.value.filter(s => Number(String(s.plannedDate).slice(8, 10)) === selectedDay.value);
+});
+
+const calendarDays = computed(() => {
+  const days = new Date(filterYear.value, filterMonth.value, 0).getDate();
+  return Array.from({ length: days }, (_, i) => {
+    const day = i + 1;
+    return { day, items: schedules.value.filter(s => Number(String(s.plannedDate).slice(8, 10)) === day) };
+  });
+});
 
 const showModal = ref(false);
 const form = ref({
@@ -111,7 +125,25 @@ onMounted(() => { loadData(); });
         </select>
       </div>
 
-      <button class="btn btn-secondary btn-sm" @click="loadData">Обновить</button>
+      <button class="btn btn-secondary btn-sm" @click="selectedDay = null; loadData()">Все дни</button>
+    </div>
+
+    <!-- Календарная сетка с цветовой индикацией (R161) -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Календарь месяца {{ selectedDay ? `(фильтр: ${selectedDay} число)` : '' }}</div>
+        <span style="font-size: 12px; color: var(--text-muted);">Нажмите на день для фильтрации</span>
+      </div>
+      <div class="card-body">
+        <div class="cal-grid">
+          <div v-for="d in calendarDays" :key="d.day" class="cal-day" :class="{ active: selectedDay === d.day }" @click="selectedDay = selectedDay === d.day ? null : d.day">
+            <div style="font-weight: 700;">{{ d.day }}</div>
+            <div class="cal-dots">
+              <span v-for="it in d.items" :key="it.scheduleId" class="cal-dot" :style="{ background: it.scheduleStatus === 'completed' ? '#10b981' : it.scheduleStatus === 'in_progress' ? '#f59e0b' : '#38bdf8' }" :title="`${it.inventoryNumber} (${it.typeCode})`"></span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Таблица плановых ТО с кнопкой генерации заявки в 1 клик (R161) -->
@@ -131,8 +163,8 @@ onMounted(() => { loadData(); });
           </thead>
           <tbody>
             <tr v-if="isLoading"><td colspan="7" style="text-align: center; padding: 25px;">Загрузка графика...</td></tr>
-            <tr v-else-if="!schedules.length"><td colspan="7" style="text-align: center; padding: 25px; color: #94a3b8;">В выбранном месяце работ не запланировано</td></tr>
-            <tr v-for="s in schedules" :key="s.scheduleId">
+            <tr v-else-if="!filteredSchedules.length"><td colspan="7" style="text-align: center; padding: 25px; color: #94a3b8;">Работ не запланировано</td></tr>
+            <tr v-for="s in filteredSchedules" :key="s.scheduleId">
               <td style="font-weight: 700;">{{ s.plannedDate }}</td>
               <td>
                 <div style="font-weight: 600;">{{ s.inventoryNumber }}</div>
@@ -209,9 +241,3 @@ onMounted(() => { loadData(); });
     </div>
   </div>
 </template>
-
-<style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
-.page-title { font-size: 22px; font-weight: 800; color: #f8fafc; }
-.page-sub { font-size: 13px; color: #94a3b8; }
-</style>

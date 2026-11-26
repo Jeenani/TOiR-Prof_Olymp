@@ -239,9 +239,3 @@ onMounted(() => { loadData(); });
     </div>
   </div>
 </template>
-
-<style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
-.page-title { font-size: 22px; font-weight: 800; color: #f8fafc; }
-.page-sub { font-size: 13px; color: #94a3b8; }
-</style>

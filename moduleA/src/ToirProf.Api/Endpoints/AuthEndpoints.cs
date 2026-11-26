@@ -70,5 +70,35 @@ public static class AuthEndpoints
             }).ToListAsync();
             return Results.Ok(teams);
         });
+
+        g.MapGet("/users", async (string? search, ToirDbContext db) =>
+        {
+            var q = db.Users.Include(u => u.Role).Include(u => u.Workshop).AsQueryable();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                q = q.Where(u => u.LastName.ToLower().Contains(s) || u.FirstName.ToLower().Contains(s) || u.Email.ToLower().Contains(s));
+            }
+            var list = await q.OrderBy(u => u.UserId).Select(u => new
+            {
+                u.UserId, u.Email, FullName = (u.LastName + " " + u.FirstName + " " + (u.Patronymic ?? "")).Trim(),
+                u.RoleId, u.Role.RoleCode, u.Role.RoleName, u.WorkshopId,
+                WorkshopName = u.Workshop != null ? u.Workshop.WorkshopName : "Заводоуправление", u.IsActive
+            }).ToListAsync();
+            return Results.Ok(list);
+        }).RequireAuthorization();
+
+        g.MapPut("/users/{id:int}", async (int id, UpdateUserReq req, ToirDbContext db) =>
+        {
+            var u = await db.Users.FindAsync(id);
+            if (u == null) return Results.NotFound(new { message = "Пользователь не найден" });
+            if (req.IsActive.HasValue) u.IsActive = req.IsActive.Value;
+            if (req.RoleId > 0) u.RoleId = req.RoleId.Value;
+            if (req.WorkshopId.HasValue) u.WorkshopId = req.WorkshopId > 0 ? req.WorkshopId : null;
+            await db.SaveChangesAsync();
+            return Results.Ok(new { message = "Данные пользователя обновлены" });
+        }).RequireAuthorization(p => p.RequireRole("admin"));
     }
+
+    public record UpdateUserReq(bool? IsActive, int? RoleId, int? WorkshopId);
 }

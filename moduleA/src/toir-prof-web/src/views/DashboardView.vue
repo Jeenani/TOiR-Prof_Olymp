@@ -1,43 +1,39 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import { Chart, registerables } from 'chart.js';
 import { api } from '../services/api';
 import { exportChartToPNG } from '../services/export';
+import { drawChart, orderBadge } from '../services/ui';
 import { useToastStore } from '../stores/toastStore';
-
-Chart.register(...registerables);
 
 const router = useRouter();
 const toast = useToastStore();
 
 const kpi = ref(null);
-const isLoading = ref(true);
-const selectedWorkshop = ref(0);
+const dynamics = ref([]);
 const workshops = ref([]);
+const selectedWorkshop = ref(0);
+const isLoading = ref(true);
 const autoRefresh = ref(true);
-let refreshTimer = null;
 
-let statusChart = null;
-let workshopChart = null;
-let topDowntimeChart = null;
+let refreshTimer = null;
+let charts = {};
 
 async function loadData() {
   isLoading.value = true;
   try {
     const params = selectedWorkshop.value > 0 ? { workshopId: selectedWorkshop.value } : {};
-    const [kpiData, wsList] = await Promise.all([
+    const [kpiData, detData, wsList] = await Promise.all([
       api.get('/analytics/dashboard', params),
-      workshops.value.length ? Promise.resolve(workshops.value) : api.get('/auth/workshops')
+      api.get('/analytics/details', params),
+      workshops.value.length ? workshops.value : api.get('/auth/workshops')
     ]);
-
     kpi.value = kpiData;
+    dynamics.value = detData.dynamics || [];
     if (!workshops.value.length) workshops.value = wsList;
-
     await nextTick();
     renderCharts();
-  } catch (err) {
-    console.error('Ошибка загрузки дашборда:', err);
+  } catch {
     toast.error('Не удалось загрузить данные дашборда');
   } finally {
     isLoading.value = false;
@@ -47,130 +43,59 @@ async function loadData() {
 function renderCharts() {
   if (!kpi.value) return;
 
-  // 1. Статусы оборудования (Doughnut) - R147
-  const statusCanvas = document.getElementById('statusChart');
-  if (statusCanvas) {
-    if (statusChart) statusChart.destroy();
-    const labels = kpi.value.equipmentByStatus.map(s => s.statusName);
-    const data = kpi.value.equipmentByStatus.map(s => s.count);
-    const colors = ['#10b981', '#f59e0b', '#ef4444', '#64748b', '#8b5cf6'];
+  charts.status = drawChart('statusChart', charts.status, {
+    type: 'doughnut',
+    data: {
+      labels: kpi.value.equipmentByStatus.map(s => s.statusName),
+      datasets: [{ data: kpi.value.equipmentByStatus.map(s => s.count), backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#64748b'], borderWidth: 0 }]
+    },
+    options: { onClick: (_, el) => el.length && router.push(`/equipment?search=${encodeURIComponent(kpi.value.equipmentByStatus[el[0].index].statusName)}`) }
+  });
 
-    statusChart = new Chart(statusCanvas, {
-      type: 'doughnut',
-      data: {
-        labels,
-        datasets: [{ data, backgroundColor: colors, borderWidth: 0 }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 11 } } }
-        },
-        onClick: (evt, elements) => {
-          if (elements.length > 0) {
-            const index = elements[0].index;
-            const status = kpi.value.equipmentByStatus[index];
-            router.push(`/equipment?search=${encodeURIComponent(status.statusName)}`);
-          }
-        }
-      }
-    });
-  }
+  charts.ws = drawChart('workshopChart', charts.ws, {
+    type: 'bar',
+    data: {
+      labels: kpi.value.ordersByWorkshop.map(w => w.workshopName.replace('Цех', 'Ц')),
+      datasets: [
+        { label: 'В работе', data: kpi.value.ordersByWorkshop.map(w => w.activeOrders), backgroundColor: '#f59e0b' },
+        { label: 'Выполнено', data: kpi.value.ordersByWorkshop.map(w => w.completedOrders), backgroundColor: '#10b981' }
+      ]
+    },
+    options: { onClick: (_, el) => el.length && router.push(`/work-orders?workshopId=${kpi.value.ordersByWorkshop[el[0].index].workshopId}`) }
+  });
 
-  // 2. Заявки по цехам (Bar) - R147
-  const wsCanvas = document.getElementById('workshopChart');
-  if (wsCanvas) {
-    if (workshopChart) workshopChart.destroy();
-    const wsLabels = kpi.value.ordersByWorkshop.map(w => w.workshopName.replace('Цех', 'Ц'));
-    const activeData = kpi.value.ordersByWorkshop.map(w => w.activeOrders);
-    const completedData = kpi.value.ordersByWorkshop.map(w => w.completedOrders);
+  charts.dyn = drawChart('dynamicsChart', charts.dyn, {
+    type: 'line',
+    data: {
+      labels: dynamics.value.map(d => d.label),
+      datasets: [{ label: 'Простой по дням (ч)', data: dynamics.value.map(d => d.downtimeHours), borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.12)', fill: true, tension: 0.3 }]
+    },
+    options: { onClick: () => router.push('/analytics') }
+  });
 
-    workshopChart = new Chart(wsCanvas, {
-      type: 'bar',
-      data: {
-        labels: wsLabels,
-        datasets: [
-          { label: 'В работе', data: activeData, backgroundColor: '#f59e0b' },
-          { label: 'Выполнено', data: completedData, backgroundColor: '#10b981' }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-          y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
-        },
-        plugins: {
-          legend: { labels: { color: '#94a3b8', font: { size: 11 } } }
-        },
-        onClick: (evt, elements) => {
-          if (elements.length > 0) {
-            const index = elements[0].index;
-            const ws = kpi.value.ordersByWorkshop[index];
-            router.push(`/work-orders?workshopId=${ws.workshopId}`);
-          }
-        }
-      }
-    });
-  }
-
-  // 3. Топ-5 простоев (Horizontal Bar) - R148
-  const topCanvas = document.getElementById('topDowntimeChart');
-  if (topCanvas) {
-    if (topDowntimeChart) topDowntimeChart.destroy();
-    const labels = kpi.value.top5Downtime.map(t => `${t.inventoryNumber} (${t.equipmentName.slice(0, 15)}...)`);
-    const data = kpi.value.top5Downtime.map(t => t.downtimeHours);
-
-    topDowntimeChart = new Chart(topCanvas, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{ label: 'Простой (часов)', data, backgroundColor: '#ef4444' }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-          y: { ticks: { color: '#94a3b8' }, grid: { display: false } }
-        },
-        plugins: {
-          legend: { display: false }
-        },
-        onClick: (evt, elements) => {
-          if (elements.length > 0) {
-            const index = elements[0].index;
-            const eq = kpi.value.top5Downtime[index];
-            router.push(`/equipment?search=${encodeURIComponent(eq.inventoryNumber)}`);
-          }
-        }
-      }
-    });
-  }
+  charts.top = drawChart('topDowntimeChart', charts.top, {
+    type: 'bar',
+    data: {
+      labels: kpi.value.top5Downtime.map(t => `${t.inventoryNumber} (${t.equipmentName.slice(0, 14)})`),
+      datasets: [{ label: 'Простой (ч)', data: kpi.value.top5Downtime.map(t => t.downtimeHours), backgroundColor: '#ef4444' }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      onClick: (_, el) => el.length && router.push(`/equipment?search=${encodeURIComponent(kpi.value.top5Downtime[el[0].index].inventoryNumber)}`)
+    }
+  });
 }
 
-function handleAutoRefreshChange() {
+function toggleAutoRefresh() {
   if (refreshTimer) clearInterval(refreshTimer);
-  if (autoRefresh.value) {
-    refreshTimer = setInterval(() => {
-      loadData();
-    }, 60000); // 60 секунд (R150)
-  }
+  if (autoRefresh.value) refreshTimer = setInterval(loadData, 60000);
 }
 
-onMounted(() => {
-  loadData();
-  handleAutoRefreshChange();
-});
-
+onMounted(() => { loadData(); toggleAutoRefresh(); });
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer);
-  if (statusChart) statusChart.destroy();
-  if (workshopChart) workshopChart.destroy();
-  if (topDowntimeChart) topDowntimeChart.destroy();
+  Object.values(charts).forEach(c => c?.destroy());
 });
 </script>
 
@@ -193,11 +118,10 @@ onUnmounted(() => {
           </select>
         </div>
 
-        <label class="auto-refresh-toggle" title="Автоматическое обновление каждые 60 сек">
-          <input type="checkbox" v-model="autoRefresh" @change="handleAutoRefreshChange" />
+        <label class="filter-item" style="cursor: pointer;">
+          <input type="checkbox" v-model="autoRefresh" @change="toggleAutoRefresh" />
           <span>Автообновление (60с)</span>
         </label>
-
         <button class="btn btn-secondary btn-sm" @click="loadData">🔄 Обновить</button>
       </div>
     </div>
@@ -206,71 +130,34 @@ onUnmounted(() => {
       <div v-for="i in 6" :key="i" class="kpi-card skeleton" style="height: 110px;"></div>
     </div>
 
-    <!-- 6 Карточек KPI (R146) -->
-    <div v-else-if="kpi" class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-title">Парк оборудования</div>
-        <div class="kpi-value">{{ kpi.totalEquipment }} <span class="kpi-unit">ед.</span></div>
-        <div class="kpi-trend trend-neutral">● 100% на учете в ТОиР</div>
+    <template v-else-if="kpi">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-title">Парк оборудования</div><div class="kpi-value">{{ kpi.totalEquipment }}<span class="kpi-unit">ед.</span></div><div class="kpi-trend trend-neutral">● 100% на учете</div></div>
+        <div class="kpi-card"><div class="kpi-title">Активные заявки</div><div class="kpi-value text-warning">{{ kpi.activeWorkOrders }}<span class="kpi-unit">в работе</span></div><div class="kpi-trend trend-down">▼ В процессе ремонта</div></div>
+        <div class="kpi-card"><div class="kpi-title">Выполнено ремонтов</div><div class="kpi-value text-success">{{ kpi.completedWorkOrders }}<span class="kpi-unit">заявок</span></div><div class="kpi-trend trend-up">▲ Приняты ОТК</div></div>
+        <div class="kpi-card"><div class="kpi-title">Суммарный простой</div><div class="kpi-value text-danger">{{ kpi.totalDowntimeHours }}<span class="kpi-unit">ч.</span></div><div class="kpi-trend trend-down">▼ Учет простоя</div></div>
+        <div class="kpi-card"><div class="kpi-title">Средний ремонт (MTTR)</div><div class="kpi-value text-blue">{{ kpi.averageRepairHours }}<span class="kpi-unit">ч.</span></div><div class="kpi-trend trend-up">▲ Норматив: 6.0 ч.</div></div>
+        <div class="kpi-card"><div class="kpi-title">Выполнение графика ТО</div><div class="kpi-value" :class="kpi.maintenanceComplianceRate >= 80 ? 'text-success' : 'text-warning'">{{ kpi.maintenanceComplianceRate }}<span class="kpi-unit">%</span></div><div class="kpi-trend trend-up">▲ Регламент ППР</div></div>
       </div>
 
-      <div class="kpi-card">
-        <div class="kpi-title">Активные заявки</div>
-        <div class="kpi-value" :class="kpi.activeWorkOrders > 0 ? 'text-warning' : ''">
-          {{ kpi.activeWorkOrders }} <span class="kpi-unit">в работе</span>
+      <div class="charts-grid">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Распределение оборудования по статусам</div><button class="btn btn-secondary btn-sm" @click="exportChartToPNG('statusChart', 'statuses')">📷 PNG</button></div>
+          <div class="card-body chart-wrapper"><canvas id="statusChart"></canvas></div>
         </div>
-        <div class="kpi-trend trend-down">▼ В процессе ремонта</div>
-      </div>
-
-      <div class="kpi-card">
-        <div class="kpi-title">Выполненные ремонты</div>
-        <div class="kpi-value text-success">{{ kpi.completedWorkOrders }} <span class="kpi-unit">заявок</span></div>
-        <div class="kpi-trend trend-up">▲ 100% приняты ОТК</div>
-      </div>
-
-      <div class="kpi-card">
-        <div class="kpi-title">Суммарный простой</div>
-        <div class="kpi-value text-danger">{{ kpi.totalDowntimeHours }} <span class="kpi-unit">ч.</span></div>
-        <div class="kpi-trend trend-down">▼ Учет простоя станков</div>
-      </div>
-
-      <div class="kpi-card">
-        <div class="kpi-title">Среднее время ремонта (MTTR)</div>
-        <div class="kpi-value text-blue">{{ kpi.averageRepairHours }} <span class="kpi-unit">ч.</span></div>
-        <div class="kpi-trend trend-up">▲ Норматив: до 6.0 ч.</div>
-      </div>
-
-      <div class="kpi-card">
-        <div class="kpi-title">Выполнение графика ТО</div>
-        <div class="kpi-value" :class="kpi.maintenanceComplianceRate >= 80 ? 'text-success' : 'text-warning'">
-          {{ kpi.maintenanceComplianceRate }}<span class="kpi-unit">%</span>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Заявки по цехам предприятия</div><button class="btn btn-secondary btn-sm" @click="exportChartToPNG('workshopChart', 'workshops')">📷 PNG</button></div>
+          <div class="card-body chart-wrapper"><canvas id="workshopChart"></canvas></div>
         </div>
-        <div class="kpi-trend trend-up">▲ Регламент ППР соблюден</div>
-      </div>
-    </div>
-
-    <!-- Графики (R147) -->
-    <div v-if="kpi" class="charts-grid">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Распределение оборудования по статусам</div>
-          <button class="btn btn-secondary btn-sm" @click="exportChartToPNG('statusChart', 'equipment-statuses')">📷 PNG</button>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Динамика заявок и простоев (30 дней)</div><button class="btn btn-secondary btn-sm" @click="exportChartToPNG('dynamicsChart', 'dynamics')">📷 PNG</button></div>
+          <div class="card-body chart-wrapper"><canvas id="dynamicsChart"></canvas></div>
         </div>
-        <div class="card-body chart-wrapper">
-          <canvas id="statusChart"></canvas>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Топ-5 оборудования по простоям</div><button class="btn btn-secondary btn-sm" @click="exportChartToPNG('topDowntimeChart', 'top-downtime')">📷 PNG</button></div>
+          <div class="card-body chart-wrapper"><canvas id="topDowntimeChart"></canvas></div>
         </div>
       </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Заявки по цехам предприятия</div>
-          <button class="btn btn-secondary btn-sm" @click="exportChartToPNG('workshopChart', 'orders-by-workshop')">📷 PNG</button>
-        </div>
-        <div class="card-body chart-wrapper">
-          <canvas id="workshopChart"></canvas>
-        </div>
-      </div>
-    </div>
 
     <!-- Нижний ряд (R148, R149) -->
     <div v-if="kpi" class="split-grid">
@@ -313,59 +200,17 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 20px;">
         <div class="card">
-          <div class="card-header">
-            <div class="card-title">Топ-5 оборудования по простоям</div>
-          </div>
-          <div class="card-body chart-wrapper-sm">
-            <canvas id="topDowntimeChart"></canvas>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Нарушения и предупреждения</div>
-            <span class="badge badge-warning">{{ kpi.violations.length }}</span>
-          </div>
-          <div class="card-body" style="padding: 12px;">
-            <div v-if="kpi.violations.length === 0" class="no-violations">
-              ✓ Нарушений регламентов и критических остатков не зафиксировано
-            </div>
-            <div v-else class="violations-list">
-              <div v-for="(v, idx) in kpi.violations" :key="idx" class="violation-card" :class="`viol-${v.severity}`">
-                <div class="viol-title">{{ v.title }}</div>
-                <div class="viol-desc">{{ v.description }}</div>
-              </div>
+          <div class="card-header"><div class="card-title">Нарушения и просрочки</div><span class="badge badge-warning">{{ kpi.violations.length }}</span></div>
+          <div class="card-body" style="display: flex; flex-direction: column; gap: 8px;">
+            <div v-if="!kpi.violations.length" class="detail-box text-success" style="text-align: center;">✓ Нарушений не зафиксировано</div>
+            <div v-for="(v, i) in kpi.violations" :key="i" class="detail-box" :style="{ borderLeft: `3px solid ${v.severity === 'danger' ? '#ef4444' : '#f59e0b'}` }">
+              <div style="font-weight: 700;">{{ v.title }}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">{{ v.description }}</div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
-
-<style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
-.page-title { font-size: 22px; font-weight: 800; color: #f8fafc; }
-.page-sub { font-size: 13px; color: #94a3b8; margin-top: 4px; }
-.header-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.form-select-sm { padding: 6px 12px; font-size: 12px; width: auto; }
-.auto-refresh-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; cursor: pointer; }
-.kpi-unit { font-size: 14px; font-weight: 500; color: #94a3b8; margin-left: 4px; }
-.text-success { color: #34d399 !important; }
-.text-warning { color: #fbbf24 !important; }
-.text-danger { color: #f87171 !important; }
-.text-blue { color: #38bdf8 !important; }
-.chart-wrapper { position: relative; height: 260px; }
-.chart-wrapper-sm { position: relative; height: 180px; }
-.order-link { color: #38bdf8; text-decoration: none; font-weight: 600; }
-.order-link:hover { text-decoration: underline; }
-.no-violations { padding: 12px; font-size: 12px; color: #34d399; text-align: center; background: rgba(16, 185, 129, 0.1); border-radius: 6px; }
-.violations-list { display: flex; flex-direction: column; gap: 8px; }
-.violation-card { padding: 10px 12px; border-radius: 6px; font-size: 12px; }
-.viol-danger { background: rgba(239, 68, 68, 0.15); border-left: 3px solid #ef4444; color: #f87171; }
-.viol-warning { background: rgba(245, 158, 11, 0.15); border-left: 3px solid #f59e0b; color: #fbbf24; }
-.viol-title { font-weight: 700; margin-bottom: 2px; }
-.viol-desc { font-size: 11px; opacity: 0.9; }
-</style>

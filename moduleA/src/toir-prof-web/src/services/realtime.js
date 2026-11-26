@@ -10,7 +10,7 @@ class RealtimeService {
     this.reconnectAttempt = 0;
     this.source = null;
     this.reconnectTimer = null;
-    this.streamUrl = 'http://localhost:5000/api/analytics/stream';
+    this.streamUrl = '/api/analytics/stream';
   }
 
   connect() {

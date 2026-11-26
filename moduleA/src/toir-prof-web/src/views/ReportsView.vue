@@ -33,7 +33,7 @@ async function generateReport() {
     } else {
       const res = await api.get('/work-orders', { pageSize: 50 });
       reportData.value = {
-        title: 'Сводный реестр выполненных ремонтов и заявок ТОиР',
+        title: reportType.value === 'compliance' ? 'Отчет по выполнению графика планово-предупредительного ТО' : 'Сводный реестр заявок ТОиР',
         headers: { orderNumber: '№ Заявки', equipmentName: 'Оборудование', workshopName: 'Цех', statusName: 'Статус', downtimeHours: 'Простой (ч)' },
         rows: res.items || []
       };
@@ -89,6 +89,7 @@ function handleExportPDF() {
               <option value="downtime">Анализ простоев оборудования</option>
               <option value="orders">Реестр выполнения заявок</option>
               <option value="materials">Складские остатки и ТМЦ</option>
+              <option value="compliance">Выполнение графика ТО</option>
             </select>
           </div>
           <div class="form-group" style="margin: 0;">
@@ -137,9 +138,3 @@ function handleExportPDF() {
     </div>
   </div>
 </template>
-
-<style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
-.page-title { font-size: 22px; font-weight: 800; color: #f8fafc; }
-.page-sub { font-size: 13px; color: #94a3b8; }
-</style>

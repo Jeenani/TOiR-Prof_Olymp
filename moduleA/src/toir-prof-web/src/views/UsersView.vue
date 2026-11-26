@@ -4,45 +4,48 @@ import { api } from '../services/api';
 import { useToastStore } from '../stores/toastStore';
 
 const toast = useToastStore();
+const users = ref([]);
+const roles = ref([]);
+const workshops = ref([]);
 
-const users = ref([
-  { userId: 1, email: 'admin@pmz.ru', fullName: 'Администраторов Алексей Игоревич', roleName: 'Администратор системы', roleCode: 'admin', workshopName: 'Заводоуправление', isActive: true },
-  { userId: 2, email: 'egorov.aa@pmz.ru', fullName: 'Егоров Анатолий Алексеевич', roleName: 'Главный инженер', roleCode: 'chief_engineer', workshopName: 'Заводоуправление', isActive: true },
-  { userId: 3, email: 'belov.ia@pmz.ru', fullName: 'Белов Игорь Анатольевич', roleName: 'Диспетчер завода', roleCode: 'dispatcher', workshopName: 'Заводоуправление', isActive: true },
-  { userId: 4, email: 'ivanov.ii@pmz.ru', fullName: 'Иванов Иван Иванович', roleName: 'Мастер цеха', roleCode: 'master', workshopName: 'ЦРМ (Цех 1)', isActive: true },
-  { userId: 5, email: 'petrov.pp@pmz.ru', fullName: 'Петров Петр Петрович', roleName: 'Мастер цеха', roleCode: 'master', workshopName: 'Механический цех (Цех 2)', isActive: true },
-  { userId: 7, email: 'sokolov.vm@pmz.ru', fullName: 'Соколов Владимир Михайлович', roleName: 'Бригадир', roleCode: 'team_leader', workshopName: 'ЦРМ (Цех 1)', isActive: true }
-]);
-
-function toggleUserStatus(u) {
-  u.isActive = !u.isActive;
-  toast.info(`Статус пользователя ${u.fullName} изменен на: ${u.isActive ? 'Активен' : 'Заблокирован'}`);
+async function loadData() {
+  try {
+    const [u, r, w] = await Promise.all([api.get('/auth/users'), api.get('/auth/roles'), api.get('/auth/workshops')]);
+    users.value = u || [];
+    roles.value = r || [];
+    workshops.value = w || [];
+  } catch (e) {
+    toast.error(e.message || 'Ошибка загрузки пользователей');
+  }
 }
+
+async function updateUser(u, patch) {
+  try {
+    await api.put(`/auth/users/${u.userId}`, patch);
+    toast.success(`Пользователь ${u.fullName} обновлён`);
+    loadData();
+  } catch (e) {
+    toast.error(e.message || 'Не удалось обновить пользователя');
+  }
+}
+
+onMounted(loadData);
 </script>
 
 <template>
-  <div class="users-page">
+  <div>
     <div class="page-header">
       <div>
-        <h1 class="page-title">Управление пользователями и правами (RBAC)</h1>
-        <p class="page-sub">Назначение ролей, цехов приписки и контроль активности учётных записей</p>
+        <h1 class="page-title">Управление пользователями (RBAC)</h1>
+        <p class="page-sub">Назначение ролей, цехов приписки и блокировка учётных записей</p>
       </div>
     </div>
 
-    <!-- Таблица пользователей (R164) -->
     <div class="card">
       <div class="table-wrapper">
         <table class="data-table">
           <thead>
-            <tr>
-              <th>ID</th>
-              <th>ФИО Сотрудника</th>
-              <th>Email</th>
-              <th>Роль доступа</th>
-              <th>Цех приписки</th>
-              <th>Статус</th>
-              <th>Действие</th>
-            </tr>
+            <tr><th>ID</th><th>ФИО</th><th>Email</th><th>Роль</th><th>Цех</th><th>Статус</th><th>Действие</th></tr>
           </thead>
           <tbody>
             <tr v-for="u in users" :key="u.userId">
@@ -50,22 +53,19 @@ function toggleUserStatus(u) {
               <td style="font-weight: 600;">{{ u.fullName }}</td>
               <td>{{ u.email }}</td>
               <td>
-                <span class="badge" :class="u.roleCode === 'admin' ? 'badge-danger' : u.roleCode === 'master' ? 'badge-warning' : 'badge-info'">
-                  {{ u.roleName }}
-                </span>
-              </td>
-              <td>{{ u.workshopName }}</td>
-              <td>
-                <span class="badge" :class="u.isActive ? 'badge-success' : 'badge-danger'">
-                  {{ u.isActive ? 'Активен' : 'Заблокирован' }}
-                </span>
+                <select :value="u.roleId" @change="updateUser(u, { roleId: +$event.target.value })" class="form-select" style="width: auto;">
+                  <option v-for="r in roles" :key="r.roleId" :value="r.roleId">{{ r.roleName }}</option>
+                </select>
               </td>
               <td>
-                <button
-                  class="btn btn-sm"
-                  :class="u.isActive ? 'btn-danger' : 'btn-success'"
-                  @click="toggleUserStatus(u)"
-                >
+                <select :value="u.workshopId || 0" @change="updateUser(u, { workshopId: +$event.target.value })" class="form-select" style="width: auto;">
+                  <option :value="0">Заводоуправление</option>
+                  <option v-for="w in workshops" :key="w.workshopId" :value="w.workshopId">{{ w.workshopName }}</option>
+                </select>
+              </td>
+              <td><span class="badge" :class="u.isActive ? 'badge-success' : 'badge-danger'">{{ u.isActive ? 'Активен' : 'Заблокирован' }}</span></td>
+              <td>
+                <button class="btn btn-sm" :class="u.isActive ? 'btn-danger' : 'btn-success'" @click="updateUser(u, { isActive: !u.isActive })">
                   {{ u.isActive ? 'Блокировать' : 'Разблокировать' }}
                 </button>
               </td>
@@ -77,8 +77,3 @@ function toggleUserStatus(u) {
   </div>
 </template>
 
-<style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
-.page-title { font-size: 22px; font-weight: 800; color: #f8fafc; }
-.page-sub { font-size: 13px; color: #94a3b8; }
-</style>

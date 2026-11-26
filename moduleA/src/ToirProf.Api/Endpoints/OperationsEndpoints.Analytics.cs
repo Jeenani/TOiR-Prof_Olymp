@@ -86,7 +86,14 @@ public static partial class OperationsEndpoints
                 Completed = ws.EquipmentList.SelectMany(e => e.MaintenanceSchedules).Count(s => s.ScheduleStatus == "completed")
             }).ToListAsync();
 
-            return Results.Ok(new { dynamics, topMaterials, teamsRating, schByWorkshop });
+            var ordersByStatus = await woQ.GroupBy(w => new { w.OrderStatusId, w.Status.StatusName })
+                .Select(g => new { g.Key.OrderStatusId, g.Key.StatusName, Count = g.Count(), Downtime = g.Sum(x => x.DowntimeHours) })
+                .OrderBy(x => x.OrderStatusId).ToListAsync();
+
+            var ordersByPriority = await woQ.GroupBy(w => w.Priority.PriorityName)
+                .Select(g => new { PriorityName = g.Key, Count = g.Count() }).ToListAsync();
+
+            return Results.Ok(new { dynamics, topMaterials, teamsRating, schByWorkshop, ordersByStatus, ordersByPriority });
         });
 
         an.MapGet("/stream", async (HttpContext ctx, CancellationToken ct) =>

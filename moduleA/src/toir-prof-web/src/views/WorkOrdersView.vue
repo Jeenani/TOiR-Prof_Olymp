@@ -196,6 +196,13 @@ onMounted(() => { loadLookups(); loadOrders(); });
         </select>
       </div>
       <div class="filter-item">
+        <label>Приоритет:</label>
+        <select v-model="filterPriority" @change="page = 1; loadOrders()" class="form-select">
+          <option :value="0">Все приоритеты</option>
+          <option v-for="p in priorities" :key="p.priorityId" :value="p.priorityId">{{ p.priorityName }}</option>
+        </select>
+      </div>
+      <div class="filter-item">
         <label>Статус:</label>
         <select v-model="filterStatus" @change="page = 1; loadOrders()" class="form-select">
           <option :value="0">Все статусы</option>
@@ -229,7 +236,7 @@ onMounted(() => { loadLookups(); loadOrders(); });
             <tr v-if="isLoading"><td colspan="9" style="text-align: center; padding: 25px;">Загрузка данных...</td></tr>
             <tr v-else-if="!orders.length"><td colspan="9" style="text-align: center; padding: 25px; color: #94a3b8;">Заявки не найдены</td></tr>
             <tr v-for="wo in orders" :key="wo.workOrderId">
-              <td><span class="order-num" @click="openDetailModal(wo.workOrderId)">{{ wo.orderNumber }}</span></td>
+              <td><span class="order-link" @click="openDetailModal(wo.workOrderId)">{{ wo.orderNumber }}</span></td>
               <td>
                 <span class="type-tag" :class="wo.orderType === 'emergency' ? 'tag-red' : 'tag-blue'">
                   {{ wo.orderType === 'emergency' ? 'Аварийный' : 'Плановый' }}
@@ -405,17 +412,3 @@ onMounted(() => { loadLookups(); loadOrders(); });
     </div>
   </div>
 </template>
-
-<style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
-.page-title { font-size: 22px; font-weight: 800; color: #f8fafc; }
-.page-sub { font-size: 13px; color: #94a3b8; }
-.order-num { color: #38bdf8; font-weight: 700; cursor: pointer; }
-.order-num:hover { text-decoration: underline; }
-.type-tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
-.tag-red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-.tag-blue { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
-.detail-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
-.detail-val { font-size: 14px; font-weight: 600; color: #f8fafc; }
-.detail-box { background: #0f172a; padding: 10px; border-radius: 6px; font-size: 13px; color: #e2e8f0; }
-</style>
