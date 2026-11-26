@@ -40,6 +40,8 @@ public class WorkOrderDetailDto : WorkOrderItemDto
 
 public class WorkOrderMaterialDto
 {
+    public int WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
     public int MaterialId { get; set; }
     public string MaterialCode { get; set; } = string.Empty;
     public string MaterialName { get; set; } = string.Empty;
@@ -80,6 +82,7 @@ public class UpdateOrderStatusRequest
 
 public class AddWorkOrderMaterialRequest
 {
+    public int? WarehouseId { get; set; }
     public int MaterialId { get; set; }
     public decimal QuantityUsed { get; set; }
     public string? CommentText { get; set; }

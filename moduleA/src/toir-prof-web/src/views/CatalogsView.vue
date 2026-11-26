@@ -46,6 +46,7 @@ async function submitAdjust() {
   if (!adjustDelta.value) return;
   try {
     const res = await api.post(`/materials/${selectedMaterial.value.materialId}/adjust`, {
+      warehouseId: selectedMaterial.value.warehouseId,
       quantityDelta: adjustDelta.value
     });
     toast.success(res.message);

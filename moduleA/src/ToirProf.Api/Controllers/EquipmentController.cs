@@ -27,14 +27,20 @@ public class EquipmentController : ControllerBase
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var query = _db.Equipment.Include(e => e.Workshop).Include(e => e.Status).AsQueryable();
+        var query = _db.Equipment
+            .Include(e => e.Workshop)
+            .Include(e => e.Status)
+            .Include(e => e.Model).ThenInclude(m => m.Manufacturer)
+            .AsQueryable();
         if (workshopId.HasValue && workshopId.Value > 0) query = query.Where(e => e.WorkshopId == workshopId.Value);
         if (statusId.HasValue && statusId.Value > 0) query = query.Where(e => e.StatusId == statusId.Value);
-        if (!string.IsNullOrWhiteSpace(model)) query = query.Where(e => e.ModelName.ToLower().Contains(model.Trim().ToLower()));
+        if (!string.IsNullOrWhiteSpace(model)) query = query.Where(e => e.Model.ModelName.ToLower().Contains(model.Trim().ToLower()));
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
-            query = query.Where(e => e.InventoryNumber.ToLower().Contains(s) || e.EquipmentName.ToLower().Contains(s) || e.ModelName.ToLower().Contains(s));
+            query = query.Where(e => e.InventoryNumber.ToLower().Contains(s) ||
+                                     e.EquipmentName.ToLower().Contains(s) ||
+                                     e.Model.ModelName.ToLower().Contains(s));
         }
 
         query = (sortBy?.ToLower(), sortDesc) switch
@@ -54,8 +60,8 @@ public class EquipmentController : ControllerBase
         {
             EquipmentId = e.EquipmentId, WorkshopId = e.WorkshopId, WorkshopName = e.Workshop.WorkshopName,
             StatusId = e.StatusId, StatusCode = e.Status.StatusCode, StatusName = e.Status.StatusName,
-            InventoryNumber = e.InventoryNumber, EquipmentName = e.EquipmentName, ModelName = e.ModelName,
-            SerialNumber = e.SerialNumber, Manufacturer = e.Manufacturer, WarrantyUntil = e.WarrantyUntil,
+            InventoryNumber = e.InventoryNumber, EquipmentName = e.EquipmentName, ModelName = e.Model.ModelName,
+            SerialNumber = e.SerialNumber, Manufacturer = e.Model.Manufacturer.ManufacturerName, WarrantyUntil = e.WarrantyUntil,
             PassportUrl = e.PassportUrl, CommissioningDate = e.CommissioningDate, OperationDate = e.OperationDate,
             DecommissioningDate = e.DecommissioningDate, CreatedAt = e.CreatedAt
         }).ToListAsync();
@@ -77,6 +83,7 @@ public class EquipmentController : ControllerBase
     {
         var e = await _db.Equipment
             .Include(x => x.Workshop).Include(x => x.Status)
+            .Include(x => x.Model).ThenInclude(m => m.Manufacturer)
             .Include(x => x.StatusHistory).ThenInclude(h => h.Status)
             .Include(x => x.MaintenanceSchedules).ThenInclude(ms => ms.MaintenanceType)
             .Include(x => x.MaintenanceSchedules).ThenInclude(ms => ms.AssignedTeam)
@@ -91,8 +98,8 @@ public class EquipmentController : ControllerBase
         {
             EquipmentId = e.EquipmentId, WorkshopId = e.WorkshopId, WorkshopName = e.Workshop.WorkshopName,
             StatusId = e.StatusId, StatusCode = e.Status.StatusCode, StatusName = e.Status.StatusName,
-            InventoryNumber = e.InventoryNumber, EquipmentName = e.EquipmentName, ModelName = e.ModelName,
-            SerialNumber = e.SerialNumber, Manufacturer = e.Manufacturer, WarrantyUntil = e.WarrantyUntil,
+            InventoryNumber = e.InventoryNumber, EquipmentName = e.EquipmentName, ModelName = e.Model.ModelName,
+            SerialNumber = e.SerialNumber, Manufacturer = e.Model.Manufacturer.ManufacturerName, WarrantyUntil = e.WarrantyUntil,
             PassportUrl = e.PassportUrl, CommissioningDate = e.CommissioningDate, OperationDate = e.OperationDate,
             DecommissioningDate = e.DecommissioningDate, CreatedAt = e.CreatedAt, UpdatedAt = e.UpdatedAt,
             StatusHistory = e.StatusHistory.OrderByDescending(h => h.ChangedAt).Select(h => new EquipmentStatusHistoryDto
@@ -136,12 +143,14 @@ public class EquipmentController : ControllerBase
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         int? currentUserId = int.TryParse(userIdClaim, out var uid) ? uid : null;
 
+        var modelEntity = await FindOrCreateModelAsync(req.ModelName, req.Manufacturer);
+
         var equipment = new Equipment
         {
             WorkshopId = req.WorkshopId, StatusId = req.StatusId > 0 ? req.StatusId : 1,
+            ModelId = modelEntity.ModelId,
             InventoryNumber = req.InventoryNumber.Trim(), EquipmentName = req.EquipmentName.Trim(),
-            ModelName = req.ModelName.Trim(), SerialNumber = req.SerialNumber?.Trim(),
-            Manufacturer = req.Manufacturer?.Trim(),
+            SerialNumber = req.SerialNumber?.Trim(),
             CommissioningDate = req.CommissioningDate == default ? DateOnly.FromDateTime(DateTime.UtcNow) : req.CommissioningDate,
             OperationDate = req.OperationDate == default ? DateOnly.FromDateTime(DateTime.UtcNow) : req.OperationDate,
             WarrantyUntil = req.WarrantyUntil, PassportUrl = req.PassportUrl?.Trim(),
@@ -163,8 +172,8 @@ public class EquipmentController : ControllerBase
         {
             EquipmentId = equipment.EquipmentId, WorkshopId = equipment.WorkshopId, StatusId = equipment.StatusId,
             InventoryNumber = equipment.InventoryNumber, EquipmentName = equipment.EquipmentName,
-            ModelName = equipment.ModelName, CommissioningDate = equipment.CommissioningDate,
-            OperationDate = equipment.OperationDate, CreatedAt = equipment.CreatedAt
+            ModelName = modelEntity.ModelName, Manufacturer = modelEntity.Manufacturer.ManufacturerName,
+            CommissioningDate = equipment.CommissioningDate, OperationDate = equipment.OperationDate, CreatedAt = equipment.CreatedAt
         });
     }
 
@@ -178,10 +187,11 @@ public class EquipmentController : ControllerBase
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         int? currentUserId = int.TryParse(userIdClaim, out var uid) ? uid : null;
 
+        var modelEntity = await FindOrCreateModelAsync(req.ModelName, req.Manufacturer);
         var statusChanged = e.StatusId != req.StatusId && req.StatusId > 0;
         e.WorkshopId = req.WorkshopId; e.EquipmentName = req.EquipmentName.Trim();
-        e.ModelName = req.ModelName.Trim(); e.SerialNumber = req.SerialNumber?.Trim();
-        e.Manufacturer = req.Manufacturer?.Trim(); e.CommissioningDate = req.CommissioningDate;
+        e.ModelId = modelEntity.ModelId; e.SerialNumber = req.SerialNumber?.Trim();
+        e.CommissioningDate = req.CommissioningDate;
         e.OperationDate = req.OperationDate; e.WarrantyUntil = req.WarrantyUntil;
         e.PassportUrl = req.PassportUrl?.Trim(); e.UpdatedByUserId = currentUserId;
         e.UpdatedAt = DateTime.UtcNow;
@@ -199,5 +209,30 @@ public class EquipmentController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { message = "Данные оборудования успешно обновлены" });
+    }
+
+    private async Task<EquipmentModel> FindOrCreateModelAsync(string modelName, string? manufacturerName)
+    {
+        var mName = string.IsNullOrWhiteSpace(modelName) ? "Универсальная модель" : modelName.Trim();
+        var mfName = string.IsNullOrWhiteSpace(manufacturerName) ? "Отечественный производитель" : manufacturerName.Trim();
+
+        var manufacturer = await _db.Manufacturers.FirstOrDefaultAsync(x => x.ManufacturerName.ToLower() == mfName.ToLower());
+        if (manufacturer == null)
+        {
+            manufacturer = new Manufacturer { ManufacturerName = mfName, Country = "Россия" };
+            _db.Manufacturers.Add(manufacturer);
+            await _db.SaveChangesAsync();
+        }
+
+        var model = await _db.EquipmentModels.Include(m => m.Manufacturer)
+            .FirstOrDefaultAsync(x => x.ManufacturerId == manufacturer.ManufacturerId && x.ModelName.ToLower() == mName.ToLower());
+        if (model == null)
+        {
+            model = new EquipmentModel { ManufacturerId = manufacturer.ManufacturerId, ModelName = mName, Manufacturer = manufacturer };
+            _db.EquipmentModels.Add(model);
+            await _db.SaveChangesAsync();
+        }
+
+        return model;
     }
 }

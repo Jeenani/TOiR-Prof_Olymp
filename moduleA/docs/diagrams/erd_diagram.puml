@@ -4,7 +4,7 @@ skinparam linetype ortho
 skinparam defaultFontName Arial
 skinparam defaultFontSize 10
 
-title ER-диаграмма реляционной базы данных «ТОиР-Проф» (3НФ)
+title ER-диаграмма реляционной базы данных «ТОиР-Проф» (строгая 3НФ, 22 таблицы)
 
 entity "roles" as roles {
     * role_id : SERIAL <<PK>>
@@ -25,10 +25,16 @@ entity "workshops" as workshops {
 entity "repair_teams" as repair_teams {
     * team_id : SERIAL <<PK>>
     --
-    workshop_id : INT <<FK>>
     * team_code : VARCHAR(50) <<UNIQUE>>
     * team_name : VARCHAR(150)
     * specialization : VARCHAR(100)
+}
+
+entity "team_workshops" as team_workshops {
+    * team_id : INT <<PK, FK>>
+    * workshop_id : INT <<PK, FK>>
+    --
+    * is_primary : BOOLEAN
 }
 
 entity "users" as users {
@@ -62,17 +68,41 @@ entity "equipment_statuses" as equipment_statuses {
     description : TEXT
 }
 
+entity "manufacturers" as manufacturers {
+    * manufacturer_id : SERIAL <<PK>>
+    --
+    * manufacturer_name : VARCHAR(150) <<UNIQUE>>
+    country : VARCHAR(100)
+}
+
+entity "equipment_models" as equipment_models {
+    * model_id : SERIAL <<PK>>
+    --
+    * manufacturer_id : INT <<FK>>
+    * model_name : VARCHAR(100)
+    equipment_category : VARCHAR(100)
+}
+
 entity "equipment" as equipment {
     * equipment_id : SERIAL <<PK>>
     --
     * workshop_id : INT <<FK>>
     * status_id : INT <<FK>>
+    * model_id : INT <<FK>>
     created_by_user_id : INT <<FK>>
     updated_by_user_id : INT <<FK>>
     * inventory_number : VARCHAR(100) <<UNIQUE>>
     * equipment_name : VARCHAR(200)
-    * model_name : VARCHAR(100)
     serial_number : VARCHAR(100)
+    warranty_until : DATE
+    passport_url : VARCHAR(255)
+    * commissioning_date : DATE
+    * operation_date : DATE
+    decommissioning_date : DATE
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
 entity "equipment_status_history" as equipment_status_history {
     * history_id : SERIAL <<PK>>
     --
@@ -82,6 +112,7 @@ entity "equipment_status_history" as equipment_status_history {
     reason : TEXT
     * changed_at : TIMESTAMP
 }
+
 
 entity "maintenance_types" as maintenance_types {
     * maintenance_type_id : SERIAL <<PK>>
@@ -151,23 +182,40 @@ entity "warehouses" as warehouses {
     location_description : TEXT
 }
 
+entity "suppliers" as suppliers {
+    * supplier_id : SERIAL <<PK>>
+    --
+    * supplier_code : VARCHAR(50) <<UNIQUE>>
+    * supplier_name : VARCHAR(150) <<UNIQUE>>
+    inn : VARCHAR(20)
+    contact_phone : VARCHAR(50)
+    contact_email : VARCHAR(150)
+}
+
 entity "materials" as materials {
     * material_id : SERIAL <<PK>>
     --
-    * warehouse_id : INT <<FK>>
+    supplier_id : INT <<FK>>
     * material_code : VARCHAR(50) <<UNIQUE>>
     * material_name : VARCHAR(200)
     * unit_of_measure : VARCHAR(20)
+    * unit_price : NUMERIC(12,2)
+    * created_at : TIMESTAMP
+}
+
+entity "warehouse_materials" as warehouse_materials {
+    * warehouse_id : INT <<PK, FK>>
+    * material_id : INT <<PK, FK>>
+    --
     * current_stock : NUMERIC(10,2)
     * minimum_stock : NUMERIC(10,2)
     storage_cell : VARCHAR(50)
-    * unit_price : NUMERIC(12,2)
-    supplier_name : VARCHAR(150)
-    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
 }
 
 entity "work_order_materials" as work_order_materials {
     * work_order_id : INT <<PK, FK>>
+    * warehouse_id : INT <<PK, FK>>
     * material_id : INT <<PK, FK>>
     --
     * quantity_used : NUMERIC(10,2)
@@ -191,12 +239,16 @@ entity "audit_logs" as audit_logs {
 ' Связи между таблицами (1:N и M:N)
 roles ||--o{ users : "role_id"
 workshops ||--o{ users : "workshop_id"
-workshops ||--o{ repair_teams : "workshop_id"
 workshops ||--o{ equipment : "workshop_id"
+
+repair_teams ||--|{ team_workshops : "team_id"
+workshops ||--|{ team_workshops : "workshop_id"
 
 repair_teams ||--|{ team_members : "team_id"
 users ||--|{ team_members : "user_id"
 
+manufacturers ||--o{ equipment_models : "manufacturer_id"
+equipment_models ||--o{ equipment : "model_id"
 equipment_statuses ||--o{ equipment : "status_id"
 equipment ||--o{ equipment_status_history : "equipment_id"
 equipment_statuses ||--o{ equipment_status_history : "status_id"
@@ -212,20 +264,13 @@ users ||--o{ work_orders : "master_user_id"
 repair_teams ||--o{ work_orders : "assigned_team_id"
 maintenance_schedules ||--o{ work_orders : "schedule_id"
 
-warehouses ||--o{ materials : "warehouse_id"
+suppliers ||--o{ materials : "supplier_id"
+warehouses ||--|{ warehouse_materials : "warehouse_id"
+materials ||--|{ warehouse_materials : "material_id"
+
 work_orders ||--|{ work_order_materials : "work_order_id"
-materials ||--|{ work_order_materials : "material_id"
+warehouse_materials ||--|{ work_order_materials : "(warehouse_id, material_id)"
 
 users ||--o{ audit_logs : "user_id"
 
 @enduml
-
-    manufacturer : VARCHAR(150)
-    warranty_until : DATE
-    passport_url : VARCHAR(255)
-    * commissioning_date : DATE
-    * operation_date : DATE
-    decommissioning_date : DATE
-    * created_at : TIMESTAMP
-    * updated_at : TIMESTAMP
-}

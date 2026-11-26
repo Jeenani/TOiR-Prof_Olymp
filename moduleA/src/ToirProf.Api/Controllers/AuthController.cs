@@ -130,14 +130,13 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<List<TeamDto>>> GetTeams([FromQuery] int? workshopId)
     {
         var query = _db.RepairTeams
-            .Include(t => t.Workshop)
-            .Include(t => t.TeamMembers)
-                .ThenInclude(tm => tm.User)
+            .Include(t => t.TeamWorkshops).ThenInclude(tw => tw.Workshop)
+            .Include(t => t.TeamMembers).ThenInclude(tm => tm.User)
             .AsQueryable();
 
         if (workshopId.HasValue)
         {
-            query = query.Where(t => t.WorkshopId == workshopId.Value);
+            query = query.Where(t => t.TeamWorkshops.Any(tw => tw.WorkshopId == workshopId.Value));
         }
 
         var teams = await query.Select(t => new TeamDto
@@ -146,8 +145,9 @@ public class AuthController : ControllerBase
             TeamCode = t.TeamCode,
             TeamName = t.TeamName,
             Specialization = t.Specialization,
-            WorkshopId = t.WorkshopId,
-            WorkshopName = t.Workshop != null ? t.Workshop.WorkshopName : null,
+            WorkshopId = t.TeamWorkshops.OrderByDescending(tw => tw.IsPrimary).Select(tw => (int?)tw.WorkshopId).FirstOrDefault(),
+            WorkshopName = string.Join(", ", t.TeamWorkshops.OrderByDescending(tw => tw.IsPrimary).Select(tw => tw.Workshop.WorkshopName)),
+            WorkshopNames = t.TeamWorkshops.OrderByDescending(tw => tw.IsPrimary).Select(tw => tw.Workshop.WorkshopName).ToList(),
             Members = t.TeamMembers.Select(tm => new TeamMemberDto
             {
                 UserId = tm.UserId,

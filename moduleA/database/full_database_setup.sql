@@ -11,12 +11,14 @@
 -- ============================================================================
 -- Система управления техническим обслуживанием и ремонтом (ТОиР) «ТОиР-Проф»
 -- Проектная документация и реализация Базы Данных (PostgreSQL)
--- Соответствие 3НФ, стандартам именования, требованиям ограничений целостности
+-- Строгое соответствие 3НФ, отсутствие транзитивных зависимостей и дублирования
 -- ============================================================================
 
 DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS work_order_materials CASCADE;
+DROP TABLE IF EXISTS warehouse_materials CASCADE;
 DROP TABLE IF EXISTS materials CASCADE;
+DROP TABLE IF EXISTS suppliers CASCADE;
 DROP TABLE IF EXISTS warehouses CASCADE;
 DROP TABLE IF EXISTS work_orders CASCADE;
 DROP TABLE IF EXISTS work_order_statuses CASCADE;
@@ -25,8 +27,11 @@ DROP TABLE IF EXISTS maintenance_schedules CASCADE;
 DROP TABLE IF EXISTS maintenance_types CASCADE;
 DROP TABLE IF EXISTS equipment_status_history CASCADE;
 DROP TABLE IF EXISTS equipment CASCADE;
+DROP TABLE IF EXISTS equipment_models CASCADE;
+DROP TABLE IF EXISTS manufacturers CASCADE;
 DROP TABLE IF EXISTS equipment_statuses CASCADE;
 DROP TABLE IF EXISTS team_members CASCADE;
+DROP TABLE IF EXISTS team_workshops CASCADE;
 DROP TABLE IF EXISTS repair_teams CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS workshops CASCADE;
@@ -48,16 +53,23 @@ CREATE TABLE workshops (
     workshop_description TEXT
 );
 
--- 3. Ремонтные бригады
+-- 3. Ремонтные бригады (без жесткой привязки к одному цеху — мобильные бригады)
 CREATE TABLE repair_teams (
     team_id SERIAL PRIMARY KEY,
     team_code VARCHAR(50) NOT NULL UNIQUE,
     team_name VARCHAR(150) NOT NULL,
-    specialization VARCHAR(100) NOT NULL,
-    workshop_id INT REFERENCES workshops(workshop_id) ON DELETE SET NULL
+    specialization VARCHAR(100) NOT NULL
 );
 
--- 4. Пользователи системы
+-- 4. Обслуживаемые цеха бригад (M:N — мобильность бригад, составной PK)
+CREATE TABLE team_workshops (
+    team_id INT NOT NULL REFERENCES repair_teams(team_id) ON DELETE CASCADE,
+    workshop_id INT NOT NULL REFERENCES workshops(workshop_id) ON DELETE CASCADE,
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (team_id, workshop_id)
+);
+
+-- 5. Пользователи системы
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     role_id INT NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
@@ -72,7 +84,7 @@ CREATE TABLE users (
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Состав ремонтных бригад (Связующая M:N, составной PK)
+-- 6. Состав ремонтных бригад (M:N, составной PK)
 CREATE TABLE team_members (
     team_id INT NOT NULL REFERENCES repair_teams(team_id) ON DELETE CASCADE,
     user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -81,7 +93,7 @@ CREATE TABLE team_members (
     PRIMARY KEY (team_id, user_id)
 );
 
--- 6. Справочник статусов оборудования
+-- 7. Справочник статусов оборудования
 CREATE TABLE equipment_statuses (
     status_id SERIAL PRIMARY KEY,
     status_code VARCHAR(50) NOT NULL UNIQUE,
@@ -89,16 +101,31 @@ CREATE TABLE equipment_statuses (
     description TEXT
 );
 
--- 7. Оборудование предприятия
+-- 8. Справочник производителей оборудования (3НФ)
+CREATE TABLE manufacturers (
+    manufacturer_id SERIAL PRIMARY KEY,
+    manufacturer_name VARCHAR(150) NOT NULL UNIQUE,
+    country VARCHAR(100) DEFAULT 'Россия'
+);
+
+-- 9. Справочник моделей оборудования (3НФ: исключение повторения пары модель + производитель)
+CREATE TABLE equipment_models (
+    model_id SERIAL PRIMARY KEY,
+    manufacturer_id INT NOT NULL REFERENCES manufacturers(manufacturer_id) ON DELETE RESTRICT,
+    model_name VARCHAR(100) NOT NULL,
+    equipment_category VARCHAR(100),
+    UNIQUE (manufacturer_id, model_name)
+);
+
+-- 10. Оборудование предприятия
 CREATE TABLE equipment (
     equipment_id SERIAL PRIMARY KEY,
     workshop_id INT NOT NULL REFERENCES workshops(workshop_id) ON DELETE RESTRICT,
     status_id INT NOT NULL REFERENCES equipment_statuses(status_id) ON DELETE RESTRICT,
+    model_id INT NOT NULL REFERENCES equipment_models(model_id) ON DELETE RESTRICT,
     inventory_number VARCHAR(100) NOT NULL UNIQUE,
     equipment_name VARCHAR(200) NOT NULL,
-    model_name VARCHAR(100) NOT NULL,
     serial_number VARCHAR(100),
-    manufacturer VARCHAR(150),
     warranty_until DATE,
     passport_url VARCHAR(255),
     commissioning_date DATE NOT NULL,
@@ -111,6 +138,7 @@ CREATE TABLE equipment (
     CONSTRAINT chk_equipment_dates_commissioning CHECK (commissioning_date <= operation_date AND operation_date <= CURRENT_DATE),
     CONSTRAINT chk_equipment_dates_decommissioning CHECK (decommissioning_date IS NULL OR decommissioning_date > commissioning_date)
 );
+
 
 -- 8. История изменения статусов оборудования
 CREATE TABLE equipment_status_history (
@@ -185,7 +213,7 @@ CREATE TABLE work_orders (
     CONSTRAINT chk_work_order_actual_dates CHECK (actual_start_date IS NULL OR actual_end_date IS NULL OR actual_start_date < actual_end_date)
 );
 
--- 14. Склады предприятия
+-- 17. Склады предприятия
 CREATE TABLE warehouses (
     warehouse_id SERIAL PRIMARY KEY,
     warehouse_code VARCHAR(50) NOT NULL UNIQUE,
@@ -193,33 +221,52 @@ CREATE TABLE warehouses (
     location_description TEXT
 );
 
--- 15. Справочник материалов и запчастей
+-- 18. Справочник поставщиков материалов и запчастей (3НФ: исключение дублирования supplier_name)
+CREATE TABLE suppliers (
+    supplier_id SERIAL PRIMARY KEY,
+    supplier_code VARCHAR(50) NOT NULL UNIQUE,
+    supplier_name VARCHAR(150) NOT NULL UNIQUE,
+    inn VARCHAR(20),
+    contact_phone VARCHAR(50),
+    contact_email VARCHAR(150)
+);
+
+-- 19. Номенклатурный справочник материалов и запчастей (не привязан к одному складу)
 CREATE TABLE materials (
     material_id SERIAL PRIMARY KEY,
-    warehouse_id INT NOT NULL REFERENCES warehouses(warehouse_id) ON DELETE RESTRICT,
+    supplier_id INT REFERENCES suppliers(supplier_id) ON DELETE SET NULL,
     material_code VARCHAR(50) NOT NULL UNIQUE,
     material_name VARCHAR(200) NOT NULL,
     unit_of_measure VARCHAR(20) NOT NULL,
-    current_stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
-    minimum_stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (minimum_stock >= 0),
-    storage_cell VARCHAR(50),
     unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
-    supplier_name VARCHAR(150),
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 16. Списание материалов в заявку (Составной PK, каскадное удаление)
+-- 20. Остатки материалов на складах (M:N между warehouses и materials, составной PK)
+CREATE TABLE warehouse_materials (
+    warehouse_id INT NOT NULL REFERENCES warehouses(warehouse_id) ON DELETE RESTRICT,
+    material_id INT NOT NULL REFERENCES materials(material_id) ON DELETE CASCADE,
+    current_stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
+    minimum_stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (minimum_stock >= 0),
+    storage_cell VARCHAR(50),
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (warehouse_id, material_id)
+);
+
+-- 21. Списание материалов в заявку (ссылка на конкретный склад + материал, составной PK)
 CREATE TABLE work_order_materials (
     work_order_id INT NOT NULL REFERENCES work_orders(work_order_id) ON DELETE CASCADE,
-    material_id INT NOT NULL REFERENCES materials(material_id) ON DELETE RESTRICT,
+    warehouse_id INT NOT NULL,
+    material_id INT NOT NULL,
     quantity_used NUMERIC(10, 2) NOT NULL CHECK (quantity_used > 0),
     historical_unit_price NUMERIC(12, 2) NOT NULL CHECK (historical_unit_price >= 0),
     used_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     comment_text TEXT,
-    PRIMARY KEY (work_order_id, material_id)
+    PRIMARY KEY (work_order_id, warehouse_id, material_id),
+    FOREIGN KEY (warehouse_id, material_id) REFERENCES warehouse_materials(warehouse_id, material_id) ON DELETE RESTRICT
 );
 
--- 17. Журнал аудита операций
+-- 22. Журнал аудита операций
 CREATE TABLE audit_logs (
     log_id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
@@ -517,13 +564,26 @@ INSERT INTO workshops (workshop_id, workshop_code, workshop_name, workshop_descr
 (4, 'RMS', 'Ремонтно-механическая служба (РМС)', 'Централизованная служба ТОиР предприятия'),
 (5, 'WH-MAIN', 'Центральное складское хозяйство', 'Централизованное хранение запчастей, агрегатов и ГСМ');
 
--- 3. Ремонтные бригады
-INSERT INTO repair_teams (team_id, team_code, team_name, specialization, workshop_id) VALUES
-(1, 'BR-01', 'Бригада №1 (Механики-ремонтники)', 'Механическая обработка, станки 16К20, 6Р13Ф3', 1),
-(2, 'BR-02', 'Бригада №2 (Электрики-сварщики)', 'Сварочное и термическое оборудование', 2),
-(3, 'BR-03', 'Бригада №3 (Электромонтажники)', 'Трансформаторы, приводы, распределительные щиты', 3),
-(4, 'BR-04', 'Бригада №4 (Наладчики КИПиА)', 'Электроника, датчики, частотные преобразователи', 3),
-(5, 'BR-05', 'Бригада №5 (Слесари-диагносты)', 'Вибродиагностика, неразрушающий контроль', 4);
+-- 3. Ремонтные бригады (мобильные, без жесткой привязки к 1 цеху)
+INSERT INTO repair_teams (team_id, team_code, team_name, specialization) VALUES
+(1, 'BR-01', 'Бригада №1 (Механики-ремонтники)', 'Механическая обработка, станки 16К20, 6Р13Ф3'),
+(2, 'BR-02', 'Бригада №2 (Электрики-сварщики)', 'Сварочное и термическое оборудование'),
+(3, 'BR-03', 'Бригада №3 (Электромонтажники)', 'Трансформаторы, приводы, распределительные щиты'),
+(4, 'BR-04', 'Бригада №4 (Наладчики КИПиА)', 'Электроника, датчики, частотные преобразователи'),
+(5, 'BR-05', 'Бригада №5 (Слесари-диагносты)', 'Вибродиагностика, неразрушающий контроль (мобильная)');
+
+-- 4. Обслуживаемые цеха бригад (M:N — мобильные бригады)
+INSERT INTO team_workshops (team_id, workshop_id, is_primary) VALUES
+(1, 1, TRUE),
+(1, 2, FALSE),
+(2, 2, TRUE),
+(3, 3, TRUE),
+(4, 3, TRUE),
+(4, 1, FALSE),
+(5, 1, FALSE),
+(5, 2, FALSE),
+(5, 3, FALSE),
+(5, 4, TRUE);
 
 -- 4. Пользователи системы (пароль 'password123' / SHA256 хеш)
 INSERT INTO users (user_id, role_id, workshop_id, email, phone, first_name, last_name, patronymic, password_hash, is_active) VALUES
@@ -552,21 +612,53 @@ INSERT INTO equipment_statuses (status_id, status_code, status_name, description
 (4, 'decommissioned', 'Выведено из эксплуатации', 'Списано, законсервировано или передано в утилизацию'),
 (5, 'in_standby', 'В резерве', 'Исправно, законсервировано в горячем резерве');
 
--- 7. Оборудование (данные из Приложения 6)
-INSERT INTO equipment (equipment_id, workshop_id, status_id, inventory_number, equipment_name, model_name, serial_number, manufacturer, commissioning_date, operation_date, created_by_user_id) VALUES
-(1, 1, 1, 'EQ-001', 'Токарно-винторезный станок', '16К20', 'SN-16K20-8472', 'Красный Пролетарий', '2018-03-15', '2018-03-20', 1),
-(2, 1, 1, 'EQ-002', 'Вертикально-фрезерный станок', '6Р13Ф3', 'SN-6R13-1094', 'Горьковский завод фрезерных станков', '2019-07-20', '2019-07-25', 1),
-(3, 1, 1, 'EQ-003', 'Горизонтально-расточной станок', '2М614', 'SN-2M614-551', 'Ивановский завод', '2017-11-10', '2017-11-15', 1),
-(4, 1, 1, 'EQ-004', 'Круглошлифовальный станок', '3У131М', 'SN-3U131-789', 'Лубенский станкозавод', '2020-04-05', '2020-04-10', 1),
-(5, 1, 2, 'EQ-005', 'Координатно-расточной станок', '2Е450', 'SN-2E450-302', 'Московский координатный завод', '2016-09-12', '2016-09-15', 1),
-(6, 2, 1, 'EQ-006', 'Сварочный автомат', 'АДФ-1000', 'SN-ADF-1000-88', 'Электрик', '2019-02-02', '2019-02-05', 1),
-(7, 2, 1, 'EQ-007', 'Полуавтомат сварочный', 'ПДГ-500', 'SN-PDG-500-14', 'Сэлма', '2020-05-15', '2020-05-20', 1),
-(8, 2, 1, 'EQ-008', 'Печь муфельная', 'СНОЛ-1,6.2,5.2,5/9', 'SN-SNOL-902', 'Умикон', '2018-08-10', '2018-08-15', 1),
-(9, 2, 3, 'EQ-009', 'Установка ТВЧ-закалки', 'УЗТ-100', 'SN-UZT-100-33', 'РЭЛТЕК', '2017-11-20', '2017-11-25', 1),
-(10, 2, 1, 'EQ-010', 'Сварочный выпрямитель', 'ВДУ-506', 'SN-VDU-506-61', 'КЗЭСО', '2021-09-05', '2021-09-10', 1),
-(11, 3, 1, 'EQ-011', 'Трансформатор силовой', 'ТМ-400/10', 'SN-TM400-09', 'МЭТЗ', '2016-01-15', '2016-01-20', 1),
-(12, 3, 1, 'EQ-012', 'Частотный преобразователь', 'АИР-132М4', 'SN-AIR-132-77', 'ВЕСПЕР', '2019-08-20', '2019-08-25', 1),
-(13, 3, 1, 'EQ-013', 'Электродвигатель асинхронный', '4А250М4', 'SN-4A250-101', 'ВЭМЗ', '2020-03-10', '2020-03-15', 1);
+-- 6.1. Производители оборудования (3НФ)
+INSERT INTO manufacturers (manufacturer_id, manufacturer_name, country) VALUES
+(1, 'Красный Пролетарий', 'Россия'),
+(2, 'Горьковский завод фрезерных станков', 'Россия'),
+(3, 'Ивановский станкостроительный завод', 'Россия'),
+(4, 'Лубенский станкозавод', 'Украина'),
+(5, 'Московский координатный завод', 'Россия'),
+(6, 'ЗАО «Электрик»', 'Россия'),
+(7, 'СЭЛМА', 'Россия'),
+(8, 'Умикон', 'Россия'),
+(9, 'РЭЛТЕК', 'Россия'),
+(10, 'КЗЭСО', 'Украина'),
+(11, 'МЭТЗ им. В.И. Козлова', 'Беларусь'),
+(12, 'ВЕСПЕР', 'Россия'),
+(13, 'ВЭМЗ', 'Россия');
+
+-- 6.2. Модели оборудования (3НФ: исключение повторения пары model_name + manufacturer)
+INSERT INTO equipment_models (model_id, manufacturer_id, model_name, equipment_category) VALUES
+(1, 1, '16К20', 'Токарные станки'),
+(2, 2, '6Р13Ф3', 'Фрезерные станки'),
+(3, 3, '2М614', 'Расточные станки'),
+(4, 4, '3У131М', 'Шлифовальные станки'),
+(5, 5, '2Е450', 'Координатные станки'),
+(6, 6, 'АДФ-1000', 'Сварочное оборудование'),
+(7, 7, 'ПДГ-500', 'Сварочное оборудование'),
+(8, 8, 'СНОЛ-1,6.2,5.2,5/9', 'Термическое оборудование'),
+(9, 9, 'УЗТ-100', 'Установки ТВЧ'),
+(10, 10, 'ВДУ-506', 'Сварочные выпрямители'),
+(11, 11, 'ТМ-400/10', 'Силовые трансформаторы'),
+(12, 12, 'АИР-132М4', 'Приводная техника'),
+(13, 13, '4А250М4', 'Электродвигатели');
+
+-- 7. Оборудование (данные из Приложения 6, ссылка на model_id)
+INSERT INTO equipment (equipment_id, workshop_id, status_id, model_id, inventory_number, equipment_name, serial_number, commissioning_date, operation_date, created_by_user_id) VALUES
+(1, 1, 1, 1, 'EQ-001', 'Токарно-винторезный станок', 'SN-16K20-8472', '2018-03-15', '2018-03-20', 1),
+(2, 1, 1, 2, 'EQ-002', 'Вертикально-фрезерный станок', 'SN-6R13-1094', '2019-07-20', '2019-07-25', 1),
+(3, 1, 1, 3, 'EQ-003', 'Горизонтально-расточной станок', 'SN-2M614-551', '2017-11-10', '2017-11-15', 1),
+(4, 1, 1, 4, 'EQ-004', 'Круглошлифовальный станок', 'SN-3U131-789', '2020-04-05', '2020-04-10', 1),
+(5, 1, 2, 5, 'EQ-005', 'Координатно-расточной станок', 'SN-2E450-302', '2016-09-12', '2016-09-15', 1),
+(6, 2, 1, 6, 'EQ-006', 'Сварочный автомат', 'SN-ADF-1000-88', '2019-02-02', '2019-02-05', 1),
+(7, 2, 1, 7, 'EQ-007', 'Полуавтомат сварочный', 'SN-PDG-500-14', '2020-05-15', '2020-05-20', 1),
+(8, 2, 1, 8, 'EQ-008', 'Печь муфельная', 'SN-SNOL-902', '2018-08-10', '2018-08-15', 1),
+(9, 2, 3, 9, 'EQ-009', 'Установка ТВЧ-закалки', 'SN-UZT-100-33', '2017-11-20', '2017-11-25', 1),
+(10, 2, 1, 10, 'EQ-010', 'Сварочный выпрямитель', 'SN-VDU-506-61', '2021-09-05', '2021-09-10', 1),
+(11, 3, 1, 11, 'EQ-011', 'Трансформатор силовой', 'SN-TM400-09', '2016-01-15', '2016-01-20', 1),
+(12, 3, 1, 12, 'EQ-012', 'Частотный преобразователь', 'SN-AIR-132-77', '2019-08-20', '2019-08-25', 1),
+(13, 3, 1, 13, 'EQ-013', 'Электродвигатель асинхронный', 'SN-4A250-101', '2020-03-10', '2020-03-15', 1);
 
 -- 8. История изменения статусов оборудования
 INSERT INTO equipment_status_history (equipment_id, status_id, reason, changed_by_user_id) VALUES
@@ -632,28 +724,57 @@ INSERT INTO warehouses (warehouse_id, warehouse_code, warehouse_name, location_d
 (4, 'WH-04', 'Склад №4: Сварочные материалы и газы', 'Корпус 2, пристройка к термическому участку'),
 (5, 'WH-05', 'Склад №5: Расходные материалы общего назначения', 'Административно-бытовой корпус, склад 1');
 
--- 15. Материалы и запчасти (данные из Приложения 6)
-INSERT INTO materials (material_id, warehouse_id, material_code, material_name, unit_of_measure, current_stock, minimum_stock, storage_cell, unit_price, supplier_name) VALUES
-(1, 3, 'М-001', 'Масло индустриальное И-20', 'л', 200.0, 50.0, 'С-3-01', 150.00, 'Лукойл-Смазочные материалы'),
-(2, 3, 'М-002', 'Смазка Литол-24', 'кг', 80.0, 20.0, 'С-3-02', 320.00, 'Газпромнефть'),
-(3, 1, 'М-003', 'Фильтр масляный (16К20)', 'шт', 15.0, 5.0, 'А-1-12', 850.00, 'СтанкоКомплект'),
-(4, 1, 'М-004', 'Ремень приводной клиновой (6Р13Ф3)', 'шт', 10.0, 3.0, 'А-2-05', 1200.00, 'РТИ-Снаб'),
-(5, 2, 'М-005', 'Подшипник радиальный 6-205', 'шт', 50.0, 15.0, 'Б-1-44', 450.00, 'ЕПК Волжский'),
-(6, 4, 'М-006', 'Электрод сварочный МР-3', 'кг', 300.0, 100.0, 'Г-1-01', 280.00, 'СпецЭлектрод'),
-(7, 2, 'М-007', 'Провод монтажный ПВС 3х2,5', 'м', 500.0, 100.0, 'Б-2-10', 95.00, 'Камкабель'),
-(8, 2, 'М-008', 'Термопара хромель-копель ТХК', 'шт', 20.0, 5.0, 'Б-3-15', 2100.00, 'Теплоприбор'),
-(9, 3, 'М-009', 'Масло трансформаторное ГК', 'л', 150.0, 50.0, 'С-3-05', 220.00, 'Роснефть'),
-(10, 2, 'М-010', 'Изолента ПВХ профессиональная', 'рул', 30.0, 10.0, 'Б-4-01', 65.00, 'ПромСнаб');
+-- 15. Поставщики материалов (3НФ: выделено из materials)
+INSERT INTO suppliers (supplier_id, supplier_code, supplier_name, inn, contact_phone, contact_email) VALUES
+(1, 'SUP-01', 'Лукойл-Смазочные материалы', '7708004767', '+7-495-981-71-00', 'sales@lukoil-masla.ru'),
+(2, 'SUP-02', 'Газпромнефть-СМ', '7728640182', '+7-495-642-99-69', 'info@gazpromneft-sm.ru'),
+(3, 'SUP-03', 'СтанкоКомплект', '5260123456', '+7-831-412-00-15', 'order@stankokomplekt.ru'),
+(4, 'SUP-04', 'РТИ-Снаб', '5258987654', '+7-831-245-30-40', 'rti@rtisnab.ru'),
+(5, 'SUP-05', 'ЕПК Волжский', '3435012345', '+7-8443-55-12-00', 'epk@epkgroup.ru'),
+(6, 'SUP-06', 'СпецЭлектрод', '7720011223', '+7-495-306-44-00', 'zakaz@spetselectrode.ru'),
+(7, 'SUP-07', 'Камкабель', '5904184047', '+7-342-270-00-10', 'cable@kamkabel.ru'),
+(8, 'SUP-08', 'Теплоприбор', '7447098765', '+7-351-729-88-11', 'tp@teplopribor.ru'),
+(9, 'SUP-09', 'Роснефть-Смазки', '7706107510', '+7-499-517-88-99', 'masla@rosneft.ru'),
+(10, 'SUP-10', 'ПромСнаб', '5262001122', '+7-831-290-11-22', 'info@promsnab-nn.ru');
 
--- 16. Списание материалов в заявку (M:N, составной первичный ключ)
-INSERT INTO work_order_materials (work_order_id, material_id, quantity_used, historical_unit_price, comment_text) VALUES
-(1, 1, 10.0, 150.00, 'Замена отработанного масла в гидросистеме станка 16К20'),
-(1, 3, 1.0, 850.00, 'Плановая замена масляного фильтра'),
-(2, 2, 2.5, 320.00, 'Смазка направляющих суппорта и подшипников'),
-(2, 4, 1.0, 1200.00, 'Замена изношенного приводного ремня'),
-(3, 5, 2.0, 450.00, 'Замена опорных подшипников вентилятора охлаждения');
+-- 16. Номенклатурный справочник материалов (без привязки к одному складу)
+INSERT INTO materials (material_id, supplier_id, material_code, material_name, unit_of_measure, unit_price) VALUES
+(1, 1, 'М-001', 'Масло индустриальное И-20', 'л', 150.00),
+(2, 2, 'М-002', 'Смазка Литол-24', 'кг', 320.00),
+(3, 3, 'М-003', 'Фильтр масляный (16К20)', 'шт', 850.00),
+(4, 4, 'М-004', 'Ремень приводной клиновой (6Р13Ф3)', 'шт', 1200.00),
+(5, 5, 'М-005', 'Подшипник радиальный 6-205', 'шт', 450.00),
+(6, 6, 'М-006', 'Электрод сварочный МР-3', 'кг', 280.00),
+(7, 7, 'М-007', 'Провод монтажный ПВС 3х2,5', 'м', 95.00),
+(8, 8, 'М-008', 'Термопара хромель-копель ТХК', 'шт', 2100.00),
+(9, 9, 'М-009', 'Масло трансформаторное ГК', 'л', 220.00),
+(10, 10, 'М-010', 'Изолента ПВХ профессиональная', 'рул', 65.00);
 
--- 17. Журнал аудита операций
+-- 17. Остатки материалов на складах (M:N — один материал может храниться на разных складах)
+INSERT INTO warehouse_materials (warehouse_id, material_id, current_stock, minimum_stock, storage_cell) VALUES
+(3, 1, 200.0, 50.0, 'С-3-01'),
+(1, 1, 25.0, 10.0, 'А-1-02'),
+(3, 2, 80.0, 20.0, 'С-3-02'),
+(1, 3, 15.0, 5.0, 'А-1-12'),
+(1, 4, 10.0, 3.0, 'А-2-05'),
+(2, 5, 50.0, 15.0, 'Б-1-44'),
+(1, 5, 12.0, 5.0, 'А-3-01'),
+(4, 6, 300.0, 100.0, 'Г-1-01'),
+(2, 7, 500.0, 100.0, 'Б-2-10'),
+(2, 8, 20.0, 5.0, 'Б-3-15'),
+(3, 9, 150.0, 50.0, 'С-3-05'),
+(2, 10, 30.0, 10.0, 'Б-4-01'),
+(5, 10, 45.0, 15.0, 'Д-1-04');
+
+-- 18. Списание материалов в заявку (M:N с указанием склада списания)
+INSERT INTO work_order_materials (work_order_id, warehouse_id, material_id, quantity_used, historical_unit_price, comment_text) VALUES
+(1, 3, 1, 10.0, 150.00, 'Замена отработанного масла в гидросистеме станка 16К20'),
+(1, 1, 3, 1.0, 850.00, 'Плановая замена масляного фильтра'),
+(2, 3, 2, 2.5, 320.00, 'Смазка направляющих суппорта и подшипников'),
+(2, 1, 4, 1.0, 1200.00, 'Замена изношенного приводного ремня'),
+(3, 2, 5, 2.0, 450.00, 'Замена опорных подшипников вентилятора охлаждения');
+
+-- 19. Журнал аудита операций
 INSERT INTO audit_logs (user_id, entity_name, entity_id, action_type, old_value, new_value) VALUES
 (1, 'equipment', 1, 'CREATE', NULL, '{"inventory_number": "EQ-001", "name": "16К20"}'),
 (4, 'work_orders', 1, 'CREATE', NULL, '{"order_number": "Z-2027-0001", "status": "created"}'),
@@ -667,6 +788,8 @@ SELECT setval('workshops_workshop_id_seq', (SELECT MAX(workshop_id) FROM worksho
 SELECT setval('repair_teams_team_id_seq', (SELECT MAX(team_id) FROM repair_teams));
 SELECT setval('users_user_id_seq', (SELECT MAX(user_id) FROM users));
 SELECT setval('equipment_statuses_status_id_seq', (SELECT MAX(status_id) FROM equipment_statuses));
+SELECT setval('manufacturers_manufacturer_id_seq', (SELECT MAX(manufacturer_id) FROM manufacturers));
+SELECT setval('equipment_models_model_id_seq', (SELECT MAX(model_id) FROM equipment_models));
 SELECT setval('equipment_equipment_id_seq', (SELECT MAX(equipment_id) FROM equipment));
 SELECT setval('equipment_status_history_history_id_seq', (SELECT MAX(history_id) FROM equipment_status_history));
 SELECT setval('maintenance_types_maintenance_type_id_seq', (SELECT MAX(maintenance_type_id) FROM maintenance_types));
@@ -675,6 +798,7 @@ SELECT setval('work_order_statuses_order_status_id_seq', (SELECT MAX(order_statu
 SELECT setval('work_order_priorities_priority_id_seq', (SELECT MAX(priority_id) FROM work_order_priorities));
 SELECT setval('work_orders_work_order_id_seq', (SELECT MAX(work_order_id) FROM work_orders));
 SELECT setval('warehouses_warehouse_id_seq', (SELECT MAX(warehouse_id) FROM warehouses));
+SELECT setval('suppliers_supplier_id_seq', (SELECT MAX(supplier_id) FROM suppliers));
 SELECT setval('materials_material_id_seq', (SELECT MAX(material_id) FROM materials));
 SELECT setval('audit_logs_log_id_seq', (SELECT MAX(log_id) FROM audit_logs));
 
@@ -688,6 +812,8 @@ SELECT setval('workshops_workshop_id_seq', COALESCE((SELECT MAX(workshop_id) FRO
 SELECT setval('repair_teams_team_id_seq', COALESCE((SELECT MAX(team_id) FROM repair_teams), 1));
 SELECT setval('users_user_id_seq', COALESCE((SELECT MAX(user_id) FROM users), 1));
 SELECT setval('equipment_statuses_status_id_seq', COALESCE((SELECT MAX(status_id) FROM equipment_statuses), 1));
+SELECT setval('manufacturers_manufacturer_id_seq', COALESCE((SELECT MAX(manufacturer_id) FROM manufacturers), 1));
+SELECT setval('equipment_models_model_id_seq', COALESCE((SELECT MAX(model_id) FROM equipment_models), 1));
 SELECT setval('equipment_equipment_id_seq', COALESCE((SELECT MAX(equipment_id) FROM equipment), 1));
 SELECT setval('equipment_status_history_history_id_seq', COALESCE((SELECT MAX(history_id) FROM equipment_status_history), 1));
 SELECT setval('maintenance_types_maintenance_type_id_seq', COALESCE((SELECT MAX(maintenance_type_id) FROM maintenance_types), 1));
@@ -696,6 +822,7 @@ SELECT setval('work_order_priorities_priority_id_seq', COALESCE((SELECT MAX(prio
 SELECT setval('work_order_statuses_order_status_id_seq', COALESCE((SELECT MAX(order_status_id) FROM work_order_statuses), 1));
 SELECT setval('work_orders_work_order_id_seq', COALESCE((SELECT MAX(work_order_id) FROM work_orders), 1));
 SELECT setval('warehouses_warehouse_id_seq', COALESCE((SELECT MAX(warehouse_id) FROM warehouses), 1));
+SELECT setval('suppliers_supplier_id_seq', COALESCE((SELECT MAX(supplier_id) FROM suppliers), 1));
 SELECT setval('materials_material_id_seq', COALESCE((SELECT MAX(material_id) FROM materials), 1));
 SELECT setval('audit_logs_log_id_seq', COALESCE((SELECT MAX(log_id) FROM audit_logs), 1));
 

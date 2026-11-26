@@ -26,6 +26,7 @@ public class WarehouseDto
 
 public class AdjustStockRequest
 {
+    public int? WarehouseId { get; set; }
     public decimal QuantityDelta { get; set; }
     public string? Reason { get; set; }
 }

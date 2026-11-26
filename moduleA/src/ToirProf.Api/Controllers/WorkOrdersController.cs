@@ -107,7 +107,8 @@ public class WorkOrdersController : ControllerBase
             .Include(x => x.Equipment).ThenInclude(e => e.Workshop)
             .Include(x => x.Status).Include(x => x.Priority)
             .Include(x => x.MasterUser).Include(x => x.AssignedTeam)
-            .Include(x => x.WorkOrderMaterials).ThenInclude(m => m.Material)
+            .Include(x => x.WorkOrderMaterials).ThenInclude(m => m.WarehouseMaterial).ThenInclude(wm => wm.Material)
+            .Include(x => x.WorkOrderMaterials).ThenInclude(m => m.WarehouseMaterial).ThenInclude(wm => wm.Warehouse)
             .FirstOrDefaultAsync(x => x.WorkOrderId == id);
 
         if (wo == null) return NotFound(new { message = $"Заявка с ID {id} не найдена" });
@@ -127,8 +128,9 @@ public class WorkOrdersController : ControllerBase
             DowntimeHours = wo.DowntimeHours, CreatedAt = wo.CreatedAt, UpdatedAt = wo.UpdatedAt,
             Materials = wo.WorkOrderMaterials.Select(m => new WorkOrderMaterialDto
             {
-                MaterialId = m.MaterialId, MaterialCode = m.Material.MaterialCode, MaterialName = m.Material.MaterialName,
-                UnitOfMeasure = m.Material.UnitOfMeasure, QuantityUsed = m.QuantityUsed,
+                WarehouseId = m.WarehouseId, WarehouseName = m.WarehouseMaterial.Warehouse.WarehouseName,
+                MaterialId = m.MaterialId, MaterialCode = m.WarehouseMaterial.Material.MaterialCode, MaterialName = m.WarehouseMaterial.Material.MaterialName,
+                UnitOfMeasure = m.WarehouseMaterial.Material.UnitOfMeasure, QuantityUsed = m.QuantityUsed,
                 HistoricalUnitPrice = m.HistoricalUnitPrice, UsedAt = m.UsedAt, CommentText = m.CommentText
             }).ToList()
         });
@@ -213,7 +215,7 @@ public class WorkOrdersController : ControllerBase
     {
         var wo = await _db.WorkOrders
             .Include(w => w.Equipment)
-            .Include(w => w.WorkOrderMaterials).ThenInclude(wom => wom.Material)
+            .Include(w => w.WorkOrderMaterials).ThenInclude(wom => wom.WarehouseMaterial)
             .FirstOrDefaultAsync(w => w.WorkOrderId == id);
 
         if (wo == null) return NotFound(new { message = $"Заявка с ID {id} не найдена" });
@@ -250,8 +252,11 @@ public class WorkOrdersController : ControllerBase
 
             foreach (var item in wo.WorkOrderMaterials)
             {
-                if (item.Material != null)
-                    item.Material.CurrentStock = Math.Max(0, item.Material.CurrentStock - item.QuantityUsed);
+                if (item.WarehouseMaterial != null)
+                {
+                    item.WarehouseMaterial.CurrentStock = Math.Max(0, item.WarehouseMaterial.CurrentStock - item.QuantityUsed);
+                    item.WarehouseMaterial.UpdatedAt = DateTime.UtcNow;
+                }
             }
         }
 
@@ -268,11 +273,26 @@ public class WorkOrdersController : ControllerBase
         var wo = await _db.WorkOrders.FindAsync(id);
         if (wo == null) return NotFound(new { message = $"Заявка с ID {id} не найдена" });
 
-        var material = await _db.Materials.FindAsync(req.MaterialId);
-        if (material == null) return NotFound(new { message = $"Материал с ID {req.MaterialId} не найден" });
         if (req.QuantityUsed <= 0) return BadRequest(new { message = "Количество должно быть больше нуля" });
 
-        var existing = await _db.WorkOrderMaterials.FirstOrDefaultAsync(m => m.WorkOrderId == id && m.MaterialId == req.MaterialId);
+        WarehouseMaterial? wm;
+        if (req.WarehouseId.HasValue && req.WarehouseId.Value > 0)
+        {
+            wm = await _db.WarehouseMaterials.Include(x => x.Material)
+                .FirstOrDefaultAsync(x => x.MaterialId == req.MaterialId && x.WarehouseId == req.WarehouseId.Value);
+        }
+        else
+        {
+            wm = await _db.WarehouseMaterials.Include(x => x.Material)
+                .Where(x => x.MaterialId == req.MaterialId)
+                .OrderByDescending(x => x.CurrentStock)
+                .FirstOrDefaultAsync();
+        }
+
+        if (wm == null) return NotFound(new { message = $"Материал с ID {req.MaterialId} на складах не найден" });
+
+        var existing = await _db.WorkOrderMaterials.FirstOrDefaultAsync(m =>
+            m.WorkOrderId == id && m.WarehouseId == wm.WarehouseId && m.MaterialId == req.MaterialId);
         if (existing != null)
         {
             existing.QuantityUsed += req.QuantityUsed;
@@ -283,13 +303,13 @@ public class WorkOrdersController : ControllerBase
         {
             _db.WorkOrderMaterials.Add(new WorkOrderMaterial
             {
-                WorkOrderId = id, MaterialId = req.MaterialId,
-                QuantityUsed = req.QuantityUsed, HistoricalUnitPrice = material.UnitPrice,
+                WorkOrderId = id, WarehouseId = wm.WarehouseId, MaterialId = req.MaterialId,
+                QuantityUsed = req.QuantityUsed, HistoricalUnitPrice = wm.Material.UnitPrice,
                 CommentText = req.CommentText, UsedAt = DateTime.UtcNow
             });
         }
 
         await _db.SaveChangesAsync();
-        return Ok(new { message = $"Материал '{material.MaterialName}' добавлен к заявке" });
+        return Ok(new { message = $"Материал '{wm.Material.MaterialName}' добавлен к заявке" });
     }
 }

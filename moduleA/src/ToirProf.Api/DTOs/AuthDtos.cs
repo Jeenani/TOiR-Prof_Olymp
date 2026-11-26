@@ -46,6 +46,7 @@ public class TeamDto
     public string Specialization { get; set; } = string.Empty;
     public int? WorkshopId { get; set; }
     public string? WorkshopName { get; set; }
+    public List<string> WorkshopNames { get; set; } = new();
     public List<TeamMemberDto> Members { get; set; } = new();
 }
 

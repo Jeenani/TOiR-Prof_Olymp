@@ -45,9 +45,15 @@ class RepairTeam {
     + team_code : string
     + team_name : string
     + specialization : string
-    + workshop_id : int?
     + isAvailable(startTime: DateTime, endTime: DateTime) : bool
     + getMembers() : List<User>
+    + getWorkshops() : List<Workshop>
+}
+
+class TeamWorkshop {
+    + team_id : int
+    + workshop_id : int
+    + is_primary : bool
 }
 
 class TeamMember {
@@ -64,15 +70,27 @@ class EquipmentStatus {
     + description : string
 }
 
+class Manufacturer {
+    + manufacturer_id : int
+    + manufacturer_name : string
+    + country : string
+}
+
+class EquipmentModel {
+    + model_id : int
+    + manufacturer_id : int
+    + model_name : string
+    + equipment_category : string
+}
+
 class Equipment {
     + equipment_id : int
     + workshop_id : int
     + status_id : int
+    + model_id : int
     + inventory_number : string
     + equipment_name : string
-    + model_name : string
     + serial_number : string
-    + manufacturer : string
     + warranty_until : Date?
     + passport_url : string
     + commissioning_date : Date
@@ -141,20 +159,34 @@ class Warehouse {
     + warehouse_code : string
     + warehouse_name : string
     + location_description : string
-    + getInventory() : List<Material>
+    + getInventory() : List<WarehouseMaterial>
+}
+
+class Supplier {
+    + supplier_id : int
+    + supplier_code : string
+    + supplier_name : string
+    + inn : string
+    + contact_phone : string
+    + contact_email : string
 }
 
 class Material {
     + material_id : int
-    + warehouse_id : int
+    + supplier_id : int?
     + material_code : string
     + material_name : string
     + unit_of_measure : string
+    + unit_price : decimal
+}
+
+class WarehouseMaterial {
+    + warehouse_id : int
+    + material_id : int
     + current_stock : decimal
     + minimum_stock : decimal
     + storage_cell : string
-    + unit_price : decimal
-    + supplier_name : string
+    + updated_at : DateTime
     + isLowStock() : bool
     + reserve(quantity: decimal) : bool
     + deduct(quantity: decimal) : void
@@ -162,6 +194,7 @@ class Material {
 
 class WorkOrderMaterial {
     + work_order_id : int
+    + warehouse_id : int
     + material_id : int
     + quantity_used : decimal
     + historical_unit_price : decimal
@@ -184,12 +217,16 @@ class AuditLog {
 ' Отношения между классами
 Role "1" <-- "0..*" User : belongs_to
 Workshop "1" <-- "0..*" User : assigned_to
-Workshop "1" <-- "0..*" RepairTeam : based_in
 Workshop "1" <-- "0..*" Equipment : located_in
+
+RepairTeam "1" *-- "1..*" TeamWorkshop : serves
+Workshop "1" <-- "0..*" TeamWorkshop : served_by
 
 RepairTeam "1" *-- "1..*" TeamMember : consists_of
 User "1" <-- "0..*" TeamMember : includes
 
+Manufacturer "1" <-- "0..*" EquipmentModel : produces
+EquipmentModel "1" <-- "0..*" Equipment : model_of
 EquipmentStatus "1" <-- "0..*" Equipment : has_status
 Equipment "1" *-- "0..*" MaintenanceSchedule : schedules
 MaintenanceType "1" <-- "0..*" MaintenanceSchedule : type_of
@@ -200,9 +237,11 @@ User "1" <-- "0..*" WorkOrder : created_by_master
 RepairTeam "0..1" <-- "0..*" WorkOrder : performed_by
 MaintenanceSchedule "0..1" <-- "0..1" WorkOrder : based_on
 
-Warehouse "1" *-- "0..*" Material : stored_in
+Supplier "0..1" <-- "0..*" Material : supplied_by
+Warehouse "1" *-- "0..*" WarehouseMaterial : stores
+Material "1" <-- "0..*" WarehouseMaterial : stocked_as
 WorkOrder "1" *-- "0..*" WorkOrderMaterial : consumes
-Material "1" <-- "0..*" WorkOrderMaterial : item_ref
+WarehouseMaterial "1" <-- "0..*" WorkOrderMaterial : deducted_from
 
 User "0..1" <-- "0..*" AuditLog : initiated_by
 

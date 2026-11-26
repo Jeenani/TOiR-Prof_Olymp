@@ -108,14 +108,18 @@ public class AnalyticsController : ControllerBase
             });
         }
 
-        var lowStock = await _db.Materials.Where(m => m.CurrentStock <= m.MinimumStock).Take(5).ToListAsync();
+        var lowStock = await _db.WarehouseMaterials
+            .Include(wm => wm.Material)
+            .Include(wm => wm.Warehouse)
+            .Where(wm => wm.CurrentStock <= wm.MinimumStock)
+            .Take(5).ToListAsync();
         foreach (var ls in lowStock)
         {
             violations.Add(new ViolationAlertDto
             {
                 ViolationType = "LowStock",
-                Title = $"Критический остаток: {ls.MaterialName}",
-                Description = $"Остаток {ls.CurrentStock} {ls.UnitOfMeasure} (норма: {ls.MinimumStock})",
+                Title = $"Критический остаток: {ls.Material.MaterialName} ({ls.Warehouse.WarehouseCode})",
+                Description = $"Остаток {ls.CurrentStock} {ls.Material.UnitOfMeasure} (норма: {ls.MinimumStock})",
                 Severity = "warning"
             });
         }

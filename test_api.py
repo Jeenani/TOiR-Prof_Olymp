@@ -114,8 +114,19 @@ def test_api():
             scheds = json.loads(resp.read().decode())
             print(f"  УСПЕХ: Записей в графике ТО: {len(scheds)}")
 
+        # Тест 9: Мобильные бригады и поставщики (проверка 3НФ)
+        print("\n[ТЕСТ 9] Мобильные бригады и справочник поставщиков...")
+        req = urllib.request.Request(f"{base_url}/api/auth/teams")
+        with urllib.request.urlopen(req) as resp:
+            teams = json.loads(resp.read().decode())
+            print(f"  УСПЕХ: Бригад: {len(teams)}, пример мобильности: {teams[4]['teamName']} -> цехов: {len(teams[4]['workshopNames'])}")
+        req = urllib.request.Request(f"{base_url}/api/materials/suppliers")
+        with urllib.request.urlopen(req) as resp:
+            sups = json.loads(resp.read().decode())
+            print(f"  УСПЕХ: Поставщиков в справочнике: {len(sups)}")
+
         print("\n" + "="*55)
-        print("ВСЕ 8 ТЕСТОВ REST API ПРОЙДЕНЫ НА 100%! СЕРВЕР ПОЛНОСТЬЮ РАБОТАЕТ.")
+        print("ВСЕ 9 ТЕСТОВ REST API ПРОЙДЕНЫ НА 100%! СЕРВЕР ПОЛНОСТЬЮ РАБОТАЕТ.")
         print("="*55)
 
     except urllib.error.HTTPError as he:

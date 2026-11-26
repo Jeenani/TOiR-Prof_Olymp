@@ -26,6 +26,8 @@ SELECT setval('workshops_workshop_id_seq', COALESCE((SELECT MAX(workshop_id) FRO
 SELECT setval('repair_teams_team_id_seq', COALESCE((SELECT MAX(team_id) FROM repair_teams), 1));
 SELECT setval('users_user_id_seq', COALESCE((SELECT MAX(user_id) FROM users), 1));
 SELECT setval('equipment_statuses_status_id_seq', COALESCE((SELECT MAX(status_id) FROM equipment_statuses), 1));
+SELECT setval('manufacturers_manufacturer_id_seq', COALESCE((SELECT MAX(manufacturer_id) FROM manufacturers), 1));
+SELECT setval('equipment_models_model_id_seq', COALESCE((SELECT MAX(model_id) FROM equipment_models), 1));
 SELECT setval('equipment_equipment_id_seq', COALESCE((SELECT MAX(equipment_id) FROM equipment), 1));
 SELECT setval('equipment_status_history_history_id_seq', COALESCE((SELECT MAX(history_id) FROM equipment_status_history), 1));
 SELECT setval('maintenance_types_maintenance_type_id_seq', COALESCE((SELECT MAX(maintenance_type_id) FROM maintenance_types), 1));
@@ -34,6 +36,7 @@ SELECT setval('work_order_priorities_priority_id_seq', COALESCE((SELECT MAX(prio
 SELECT setval('work_order_statuses_order_status_id_seq', COALESCE((SELECT MAX(order_status_id) FROM work_order_statuses), 1));
 SELECT setval('work_orders_work_order_id_seq', COALESCE((SELECT MAX(work_order_id) FROM work_orders), 1));
 SELECT setval('warehouses_warehouse_id_seq', COALESCE((SELECT MAX(warehouse_id) FROM warehouses), 1));
+SELECT setval('suppliers_supplier_id_seq', COALESCE((SELECT MAX(supplier_id) FROM suppliers), 1));
 SELECT setval('materials_material_id_seq', COALESCE((SELECT MAX(material_id) FROM materials), 1));
 SELECT setval('audit_logs_log_id_seq', COALESCE((SELECT MAX(log_id) FROM audit_logs), 1));
 """
