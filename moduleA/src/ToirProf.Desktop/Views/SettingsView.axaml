@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ToirProf.Desktop.Views.SettingsView">
+  <ScrollViewer Padding="20">
+    <StackPanel Spacing="16">
+      <TextBlock Text="Настройки приложения, офлайн-черновики и журнал ошибок" FontSize="22" FontWeight="Bold" />
+
+      <Grid ColumnDefinitions="*,*">
+        <Border Grid.Column="0" Classes="card" Margin="0,0,14,0">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Персонализация интерфейса (сохраняется между сессиями)" FontSize="16" FontWeight="SemiBold" />
+            <StackPanel Spacing="4">
+              <TextBlock Text="Тема оформления" FontSize="12" FontWeight="SemiBold" />
+              <ComboBox x:Name="ThemeBox" Width="220">
+                <ComboBoxItem Content="Светлая (Light)" />
+                <ComboBoxItem Content="Тёмная (Dark)" />
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Text="Размер шрифта интерфейса" FontSize="12" FontWeight="SemiBold" />
+              <ComboBox x:Name="FontSizeBox" Width="220">
+                <ComboBoxItem Content="12" />
+                <ComboBoxItem Content="14" />
+                <ComboBoxItem Content="16" />
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Text="Адрес REST API" FontSize="12" FontWeight="SemiBold" />
+              <TextBox x:Name="ApiUrlBox" />
+            </StackPanel>
+            <TextBlock Text="Отображаемые колонки таблиц" FontSize="12" FontWeight="SemiBold" Margin="0,6,0,0" />
+            <CheckBox x:Name="ColSerialCheck" Content="Показывать «Серийный номер» (Оборудование)" />
+            <CheckBox x:Name="ColManufacturerCheck" Content="Показывать «Производитель» (Оборудование)" />
+            <CheckBox x:Name="ColTeamCheck" Content="Показывать «Бригада» (Заявки)" />
+            <Button Content="Сохранить и применить настройки" Classes="primary" HorizontalAlignment="Left" Click="OnSaveSettingsClick" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Classes="card">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Очередь офлайн-черновиков заявок" FontSize="16" FontWeight="SemiBold" />
+              <Button Grid.Column="1" Content="Отправить сейчас" Classes="primary" Click="OnSyncDraftsClick" />
+            </Grid>
+            <TextBlock Text="Если при создании заявки пропадает связь с API, черновик сохраняется локально и отправляется автоматически при восстановлении связи."
+                       FontSize="12" Foreground="#64748B" TextWrapping="Wrap" />
+            <DataGrid x:Name="DraftsGrid" AutoGenerateColumns="False" IsReadOnly="True" Height="220">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Время" Binding="{Binding CreatedAt}" Width="135" />
+                <DataGridTextColumn Header="Оборудование" Binding="{Binding EquipmentLabel}" Width="140" />
+                <DataGridTextColumn Header="Описание" Binding="{Binding Payload.Description}" Width="*" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel>
+              <TextBlock Text="Локальный журнал ошибок (errors.log)" FontSize="16" FontWeight="SemiBold" />
+              <TextBlock x:Name="LogPathText" FontSize="11" Foreground="#64748B" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="↻ Обновить лог" Classes="secondary" Click="OnRefreshLogClick" />
+          </Grid>
+          <TextBox x:Name="LogContentBox" IsReadOnly="True" AcceptsReturn="True" Height="220"
+                   FontFamily="Consolas, Monospace" FontSize="12" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ToirProf.Desktop.Views.DashboardView">
+  <ScrollViewer Padding="20">
+    <StackPanel Spacing="16">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="Оперативная сводка ТОиР" FontSize="22" FontWeight="Bold" />
+          <TextBlock x:Name="LastUpdatedText" Text="Автообновление каждые 60 сек." FontSize="12" Foreground="#64748B" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Content="↻ Обновить" Classes="secondary" Click="OnRefreshClick" />
+          <Button Content="+ Новая заявка" Classes="primary" Click="OnNewOrderClick" />
+        </StackPanel>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,*,*,*">
+        <Border Grid.Column="0" Classes="card" Margin="0,0,10,0">
+          <StackPanel Spacing="6">
+            <TextBlock Text="ОБОРУДОВАНИЕ" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" />
+            <TextBlock x:Name="KpiTotalEq" Text="—" FontSize="28" FontWeight="Bold" />
+            <TextBlock x:Name="KpiEqTrend" Text="в ремонте: —" FontSize="12" Foreground="#16A34A" />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="1" Classes="card" Margin="0,0,10,0">
+          <StackPanel Spacing="6">
+            <TextBlock Text="АКТИВНЫЕ ЗАЯВКИ" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" />
+            <TextBlock x:Name="KpiActiveOrders" Text="—" FontSize="28" FontWeight="Bold" Foreground="#1D4ED8" />
+            <TextBlock x:Name="KpiOrdersTrend" Text="▲ в работе и ожидании" FontSize="12" Foreground="#2563EB" />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Classes="card" Margin="0,0,10,0">
+          <StackPanel Spacing="6">
+            <TextBlock Text="ЗАЯВКИ НА СЕГОДНЯ" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" />
+            <TextBlock x:Name="KpiTodayOrders" Text="—" FontSize="28" FontWeight="Bold" Foreground="#D97706" />
+            <TextBlock x:Name="KpiTodayTrend" Text="суммарный простой: —" FontSize="12" Foreground="#D97706" />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="3" Classes="card">
+          <StackPanel Spacing="6">
+            <TextBlock Text="СРЕДНЕЕ ВРЕМЯ РЕМОНТА" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" />
+            <TextBlock x:Name="KpiAvgRepair" Text="—" FontSize="28" FontWeight="Bold" Foreground="#0F766E" />
+            <TextBlock x:Name="KpiComplianceTrend" Text="Выполнение ТО: —%" FontSize="12" Foreground="#0F766E" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Grid ColumnDefinitions="2*,*">
+        <Border Grid.Column="0" Classes="card" Margin="0,0,14,0">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Последние 10 заявок на ремонт" FontSize="16" FontWeight="SemiBold" />
+              <Button Grid.Column="1" Content="Все заявки →" Classes="secondary" Click="OnAllOrdersClick" />
+            </Grid>
+            <DataGrid x:Name="RecentOrdersGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                      GridLinesVisibility="Horizontal" Height="340">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Номер" Binding="{Binding OrderNumber}" Width="115" />
+                <DataGridTextColumn Header="Оборудование" Binding="{Binding EquipmentName}" Width="*" />
+                <DataGridTextColumn Header="Тип" Binding="{Binding OrderTypeRu}" Width="105" />
+                <DataGridTextColumn Header="Приоритет" Binding="{Binding PriorityName}" Width="105" />
+                <DataGridTextColumn Header="Статус" Binding="{Binding StatusName}" Width="120" />
+                <DataGridTemplateColumn Header="Карточка" Width="105">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <Button Content="Подробнее" Padding="8,4" FontSize="12" Click="OnOrderDetailsClick" Tag="{Binding WorkOrderId}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Classes="card">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Ближайшие ТО (7 дней)" FontSize="16" FontWeight="SemiBold" />
+              <Button Grid.Column="1" Content="График →" Classes="secondary" Click="OnAllSchedulesClick" />
+            </Grid>
+            <ScrollViewer MaxHeight="340">
+              <ItemsControl x:Name="UpcomingToList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,8" Padding="10" CornerRadius="8" BorderThickness="1"
+                            BorderBrush="#CBD5E1" Background="{Binding CardBg}">
+                      <StackPanel Spacing="3">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Text="{Binding Header}" FontWeight="SemiBold" FontSize="13" Foreground="{Binding TextColor}" />
+                          <TextBlock Grid.Column="1" Text="{Binding DateLabel}" FontSize="12" FontWeight="Bold" Foreground="{Binding TextColor}" />
+                        </Grid>
+                        <TextBlock Text="{Binding SubTitle}" FontSize="12" Foreground="#475569" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -154,7 +154,21 @@ public class AuthController : ControllerBase
                 FullName = $"{tm.User.LastName} {tm.User.FirstName}".Trim(),
                 Phone = tm.User.Phone,
                 IsTeamLeader = tm.IsTeamLeader
-            }).ToList()
+            }).ToList(),
+            ActiveOrdersCount = t.WorkOrders.Count(wo => wo.OrderStatusId == 1 || wo.OrderStatusId == 2 || wo.OrderStatusId == 3 || wo.OrderStatusId == 4),
+            ActiveOrders = t.WorkOrders
+                .Where(wo => wo.OrderStatusId == 1 || wo.OrderStatusId == 2 || wo.OrderStatusId == 3 || wo.OrderStatusId == 4)
+                .OrderBy(wo => wo.PlannedStartDate)
+                .Select(wo => new TeamActiveOrderDto
+                {
+                    WorkOrderId = wo.WorkOrderId,
+                    OrderNumber = wo.OrderNumber,
+                    EquipmentName = wo.Equipment.EquipmentName,
+                    StatusName = wo.Status.StatusName,
+                    PriorityName = wo.Priority.PriorityName,
+                    PlannedStartDate = wo.PlannedStartDate,
+                    PlannedEndDate = wo.PlannedEndDate
+                }).ToList()
         }).ToListAsync();
 
         return Ok(teams);

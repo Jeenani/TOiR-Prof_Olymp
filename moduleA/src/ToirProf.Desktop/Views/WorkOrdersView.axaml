@@ -1,0 +1,181 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ToirProf.Desktop.Views.WorkOrdersView">
+  <Grid>
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+        <StackPanel>
+          <TextBlock Text="Реестр заявок на техническое обслуживание и ремонт" FontSize="22" FontWeight="Bold" />
+          <TextBlock Text="Полный жизненный цикл заявки, назначение бригад с проверкой занятости и списание материалов" FontSize="12" Foreground="#64748B" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="+ Создать заявку" Classes="primary" Click="OnNewClick" />
+      </Grid>
+
+      <Border Grid.Row="1" Classes="card" Padding="12" Margin="0,0,0,12">
+        <WrapPanel Orientation="Horizontal">
+          <TextBox x:Name="SearchBox" Width="210" Margin="0,0,10,6" Watermark="Поиск (номер, оборудование)..." />
+          <ComboBox x:Name="WorkshopFilter" Width="170" Margin="0,0,10,6" SelectionChanged="OnFilterChanged" />
+          <ComboBox x:Name="StatusFilter" Width="155" Margin="0,0,10,6" SelectionChanged="OnFilterChanged" />
+          <ComboBox x:Name="PriorityFilter" Width="145" Margin="0,0,10,6" SelectionChanged="OnFilterChanged" />
+          <TextBox x:Name="DateFromBox" Width="115" Margin="0,0,10,6" Watermark="С (ГГГГ-ММ-ДД)" />
+          <Button Content="Найти" Classes="primary" Margin="0,0,8,6" Click="OnSearchClick" />
+          <Button Content="Сброс" Classes="secondary" Margin="0,0,8,6" Click="OnResetClick" />
+        </WrapPanel>
+      </Border>
+
+      <Border Grid.Row="2" Classes="card" Padding="8">
+        <DataGrid x:Name="OrdersGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                  GridLinesVisibility="Horizontal" Sorting="OnGridSorting">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Номер" Binding="{Binding OrderNumber}" Width="115" />
+            <DataGridTextColumn Header="Тип" Binding="{Binding OrderTypeRu}" Width="105" />
+            <DataGridTextColumn Header="Оборудование" Binding="{Binding EquipmentName}" Width="*" />
+            <DataGridTextColumn Header="Цех" Binding="{Binding WorkshopName}" Width="135" />
+            <DataGridTextColumn Header="Приоритет" Binding="{Binding PriorityName}" Width="105" />
+            <DataGridTextColumn Header="Статус" Binding="{Binding StatusName}" Width="125" />
+            <DataGridTextColumn Header="Бригада" Binding="{Binding TeamName}" Width="140" />
+            <DataGridTextColumn Header="Простой (ч)" Binding="{Binding DowntimeHours}" Width="90" />
+            <DataGridTemplateColumn Header="Карточка" Width="105">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Button Content="Открыть" Padding="8,4" FontSize="11" Click="OnOpenOrderClick" Tag="{Binding WorkOrderId}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+          </DataGrid.Columns>
+        </DataGrid>
+      </Border>
+
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
+        <TextBlock x:Name="PagingInfo" Text="Всего: 0" VerticalAlignment="Center" Foreground="#64748B" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,16,0">
+          <TextBlock Text="На странице:" VerticalAlignment="Center" />
+          <ComboBox x:Name="PageSizeBox" Width="80" SelectedIndex="0" SelectionChanged="OnPageSizeChanged">
+            <ComboBoxItem Content="25" />
+            <ComboBoxItem Content="50" />
+            <ComboBoxItem Content="100" />
+          </ComboBox>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button x:Name="PrevBtn" Content="← Назад" Classes="secondary" Click="OnPrevPage" />
+          <TextBlock x:Name="PageLabel" Text="Стр. 1 / 1" VerticalAlignment="Center" FontWeight="SemiBold" />
+          <Button x:Name="NextBtn" Content="Вперёд →" Classes="secondary" Click="OnNextPage" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+
+    <Border x:Name="CreateModal" Background="#80000000" IsVisible="False">
+      <Border Width="520" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="card"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Новая заявка на ремонт / ТО" FontSize="18" FontWeight="Bold" />
+          <Grid ColumnDefinitions="*,*">
+            <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,10,0">
+              <TextBlock Text="Тип заявки *" FontSize="12" FontWeight="SemiBold" />
+              <ComboBox x:Name="CreateTypeBox" HorizontalAlignment="Stretch" SelectedIndex="0">
+                <ComboBoxItem Content="Аварийная (emergency)" Tag="emergency" />
+                <ComboBoxItem Content="Плановое ТО (planned)" Tag="planned" />
+                <ComboBoxItem Content="Текущий (current)" Tag="current" />
+                <ComboBoxItem Content="Капитальный (capital)" Tag="capital" />
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4">
+              <TextBlock Text="Приоритет *" FontSize="12" FontWeight="SemiBold" />
+              <ComboBox x:Name="CreatePriorityBox" HorizontalAlignment="Stretch" />
+            </StackPanel>
+          </Grid>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Оборудование *" FontSize="12" FontWeight="SemiBold" />
+            <ComboBox x:Name="CreateEqBox" HorizontalAlignment="Stretch" />
+          </StackPanel>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Описание дефекта / работ *" FontSize="12" FontWeight="SemiBold" />
+            <TextBox x:Name="CreateDescBox" Height="64" AcceptsReturn="True" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Причина отказа (обязательна для аварийной)" FontSize="12" FontWeight="SemiBold" />
+            <TextBox x:Name="CreateFailureBox" />
+          </StackPanel>
+          <TextBlock x:Name="CreateErrorText" Foreground="#DC2626" FontSize="12" IsVisible="False" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,6,0,0">
+            <Button Content="Отмена" Classes="secondary" Click="OnCloseCreateModal" />
+            <Button Content="Создать заявку" Classes="primary" Click="OnSubmitCreateClick" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border x:Name="DetailModal" Background="#80000000" IsVisible="False">
+      <Border Width="820" Height="620" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="card"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <StackPanel>
+              <TextBlock x:Name="DetailHeader" Text="Заявка Z-2026-0001" FontSize="19" FontWeight="Bold" />
+              <TextBlock x:Name="DetailSub" FontSize="12" Foreground="#64748B" />
+            </StackPanel>
+            <TextBlock x:Name="DetailStatusBadge" Grid.Column="1" FontWeight="Bold" Foreground="#1D4ED8" VerticalAlignment="Center" />
+          </Grid>
+
+          <!-- Таймлайн статусов -->
+          <Border Grid.Row="1" Background="#F8FAFC" CornerRadius="8" Padding="10" BorderBrush="#E2E8F0" BorderThickness="1">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Жизненный цикл (таймлайн статусов)" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" />
+              <TextBlock x:Name="TimelineText" FontSize="12" FontWeight="SemiBold" Foreground="#0F172A" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <ScrollViewer Grid.Row="2">
+            <StackPanel Spacing="12">
+              <TextBlock x:Name="DetailInfoText" TextWrapping="Wrap" FontSize="13" LineHeight="20" />
+
+              <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="10">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="1. Назначение бригады (с проверкой занятости)" FontWeight="SemiBold" />
+                  <Grid ColumnDefinitions="*,Auto">
+                    <ComboBox x:Name="AssignTeamBox" Grid.Column="0" HorizontalAlignment="Stretch" Margin="0,0,8,0" />
+                    <Button Grid.Column="1" Content="Назначить бригаду" Classes="primary" Click="OnAssignTeamClick" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+
+              <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="10">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="2. Материалы для списания по заявке" FontWeight="SemiBold" />
+                  <Grid ColumnDefinitions="*,100,Auto">
+                    <ComboBox x:Name="AddMaterialBox" Grid.Column="0" HorizontalAlignment="Stretch" Margin="0,0,8,0" />
+                    <TextBox x:Name="AddMaterialQtyBox" Grid.Column="1" Text="1" Margin="0,0,8,0" />
+                    <Button Grid.Column="2" Content="+ Добавить" Classes="secondary" Click="OnAddMaterialClick" />
+                  </Grid>
+                  <DataGrid x:Name="DetailMaterialsGrid" AutoGenerateColumns="False" IsReadOnly="True" Height="130">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Материал" Binding="{Binding MaterialName}" Width="*" />
+                      <DataGridTextColumn Header="Склад" Binding="{Binding WarehouseName}" Width="140" />
+                      <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityUsed}" Width="80" />
+                      <DataGridTextColumn Header="Ед." Binding="{Binding UnitOfMeasure}" Width="60" />
+                      <DataGridTextColumn Header="Сумма (₽)" Binding="{Binding TotalCost}" Width="100" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </StackPanel>
+              </Border>
+
+              <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="10">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="3. Завершение и закрытие заявки" FontWeight="SemiBold" />
+                  <TextBox x:Name="ReportBox" Watermark="Отчёт мастера/бригадира о выполненных работах..." AcceptsReturn="True" Height="54" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Взять в работу" Classes="secondary" Click="OnTakeInWorkClick" />
+                    <Button Content="Завершить работы (списать материалы)" Classes="primary" Click="OnCompleteOrderClick" />
+                    <Button Content="Закрыть заявку" Classes="secondary" Click="OnCloseOrderClick" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+
+          <Button Grid.Row="3" Content="Закрыть окно" HorizontalAlignment="Right" Classes="secondary" Click="OnCloseDetailModal" />
+        </Grid>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>

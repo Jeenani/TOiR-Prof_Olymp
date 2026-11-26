@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ToirProf.Desktop.Views.LoginView">
+  <Grid Background="#0F172A">
+    <Border Width="430" VerticalAlignment="Center" HorizontalAlignment="Center"
+            Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+            CornerRadius="14" Padding="32" BoxShadow="0 20 50 0 #60000000">
+      <StackPanel Spacing="16">
+        <StackPanel Spacing="6" HorizontalAlignment="Center">
+          <Border Width="54" Height="54" CornerRadius="12" Background="#1E40AF" HorizontalAlignment="Center">
+            <TextBlock Text="ТО" Foreground="White" FontSize="22" FontWeight="Bold"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <TextBlock Text="АИС «ТОиР-Проф»" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" />
+          <TextBlock Text="Автоматизация технического обслуживания и ремонта" FontSize="12"
+                     Foreground="#64748B" HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Text="Электронная почта" FontWeight="SemiBold" FontSize="13" />
+          <TextBox x:Name="EmailBox" Watermark="admin@pmz.ru" Text="admin@pmz.ru" />
+          <TextBlock x:Name="EmailErrorText" Foreground="#DC2626" FontSize="11" IsVisible="False" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Text="Пароль" FontWeight="SemiBold" FontSize="13" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox x:Name="PasswordBox" Grid.Column="0" PasswordChar="•" Watermark="Введите пароль" Text="password123" />
+            <Button x:Name="TogglePasswordBtn" Grid.Column="1" Margin="6,0,0,0" Content="👁"
+                    ToolTip.Tip="Показать / скрыть пароль" Click="OnTogglePasswordClick" />
+          </Grid>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,Auto">
+          <CheckBox x:Name="RememberCheck" Content="Запомнить меня" IsChecked="True" />
+          <TextBlock Grid.Column="1" Text="API: localhost:5000" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
+        </Grid>
+
+        <Border x:Name="ErrorBanner" Background="#FEE2E2" BorderBrush="#EF4444" BorderThickness="1"
+                CornerRadius="6" Padding="10" IsVisible="False">
+          <TextBlock x:Name="ErrorText" Foreground="#991B1B" TextWrapping="Wrap" FontSize="12" />
+        </Border>
+
+        <Button x:Name="LoginButton" Classes="primary" HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center" Height="42" Click="OnLoginClick">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ProgressBar x:Name="LoginSpinner" IsIndeterminate="True" Width="18" Height="18" IsVisible="False" />
+            <TextBlock x:Name="LoginButtonText" Text="Войти в систему" FontSize="14" />
+          </StackPanel>
+        </Button>
+
+        <Border Background="#F1F5F9" CornerRadius="6" Padding="10">
+          <TextBlock FontSize="11" Foreground="#475569" TextWrapping="Wrap"
+                     Text="Демо-учётки: admin@pmz.ru / master1@pmz.ru / brigadier1@pmz.ru (пароль: password123)" />
+        </Border>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

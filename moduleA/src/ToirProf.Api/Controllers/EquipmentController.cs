@@ -137,6 +137,14 @@ public class EquipmentController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.InventoryNumber) || string.IsNullOrWhiteSpace(req.EquipmentName))
             return BadRequest(new { message = "Инвентарный номер и наименование обязательны" });
 
+        var commDate = req.CommissioningDate == default ? DateOnly.FromDateTime(DateTime.UtcNow) : req.CommissioningDate;
+        var opDate = req.OperationDate == default ? DateOnly.FromDateTime(DateTime.UtcNow) : req.OperationDate;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (opDate < commDate)
+            return BadRequest(new { message = "Дата ввода в работу не может быть раньше даты ввода в эксплуатацию" });
+        if (opDate > today)
+            return BadRequest(new { message = "Дата ввода в работу не может быть в будущем" });
+
         var exists = await _db.Equipment.AnyAsync(e => e.InventoryNumber.ToLower() == req.InventoryNumber.Trim().ToLower());
         if (exists) return Conflict(new { message = $"Оборудование с номером '{req.InventoryNumber}' уже существует" });
 
@@ -151,8 +159,8 @@ public class EquipmentController : ControllerBase
             ModelId = modelEntity.ModelId,
             InventoryNumber = req.InventoryNumber.Trim(), EquipmentName = req.EquipmentName.Trim(),
             SerialNumber = req.SerialNumber?.Trim(),
-            CommissioningDate = req.CommissioningDate == default ? DateOnly.FromDateTime(DateTime.UtcNow) : req.CommissioningDate,
-            OperationDate = req.OperationDate == default ? DateOnly.FromDateTime(DateTime.UtcNow) : req.OperationDate,
+            CommissioningDate = commDate,
+            OperationDate = opDate,
             WarrantyUntil = req.WarrantyUntil, PassportUrl = req.PassportUrl?.Trim(),
             CreatedByUserId = currentUserId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
         };
@@ -184,6 +192,12 @@ public class EquipmentController : ControllerBase
         var e = await _db.Equipment.FindAsync(id);
         if (e == null) return NotFound(new { message = $"Оборудование с ID {id} не найдено" });
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (req.OperationDate < req.CommissioningDate)
+            return BadRequest(new { message = "Дата ввода в работу не может быть раньше даты ввода в эксплуатацию" });
+        if (req.OperationDate > today)
+            return BadRequest(new { message = "Дата ввода в работу не может быть в будущем" });
+
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         int? currentUserId = int.TryParse(userIdClaim, out var uid) ? uid : null;
 
@@ -209,6 +223,33 @@ public class EquipmentController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { message = "Данные оборудования успешно обновлены" });
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize]
+    public async Task<ActionResult> DeleteEquipment(int id)
+    {
+        var e = await _db.Equipment
+            .Include(x => x.WorkOrders)
+            .Include(x => x.MaintenanceSchedules)
+            .Include(x => x.StatusHistory)
+            .FirstOrDefaultAsync(x => x.EquipmentId == id);
+
+        if (e == null) return NotFound(new { message = $"Оборудование с ID {id} не найдено" });
+
+        if (e.WorkOrders.Any() || e.MaintenanceSchedules.Any())
+        {
+            return Conflict(new
+            {
+                message = $"Невозможно удалить оборудование '{e.InventoryNumber}': имеются связанные заявки ({e.WorkOrders.Count}) или записи графика ТО ({e.MaintenanceSchedules.Count})"
+            });
+        }
+
+        _db.EquipmentStatusHistories.RemoveRange(e.StatusHistory);
+        _db.Equipment.Remove(e);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = $"Оборудование '{e.InventoryNumber}' успешно удалено" });
     }
 
     private async Task<EquipmentModel> FindOrCreateModelAsync(string modelName, string? manufacturerName)

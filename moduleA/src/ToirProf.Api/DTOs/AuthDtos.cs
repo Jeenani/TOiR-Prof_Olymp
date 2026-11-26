@@ -48,6 +48,19 @@ public class TeamDto
     public string? WorkshopName { get; set; }
     public List<string> WorkshopNames { get; set; } = new();
     public List<TeamMemberDto> Members { get; set; } = new();
+    public int ActiveOrdersCount { get; set; }
+    public List<TeamActiveOrderDto> ActiveOrders { get; set; } = new();
+}
+
+public class TeamActiveOrderDto
+{
+    public int WorkOrderId { get; set; }
+    public string OrderNumber { get; set; } = string.Empty;
+    public string EquipmentName { get; set; } = string.Empty;
+    public string StatusName { get; set; } = string.Empty;
+    public string PriorityName { get; set; } = string.Empty;
+    public DateTime PlannedStartDate { get; set; }
+    public DateTime PlannedEndDate { get; set; }
 }
 
 public class TeamMemberDto

@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ToirProf.Desktop.Views.MaterialsView">
+  <Grid>
+    <Grid RowDefinitions="Auto,Auto,*" Margin="20">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+        <StackPanel>
+          <TextBlock Text="Складской учёт материалов и запчастей" FontSize="22" FontWeight="Bold" />
+          <TextBlock Text="Остатки по складам (M:N), критический минимум, корректировки и поставщики" FontSize="12" Foreground="#64748B" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="↻ Обновить" Classes="secondary" Click="OnRefreshClick" />
+      </Grid>
+
+      <Border Grid.Row="1" Classes="card" Padding="12" Margin="0,0,0,12">
+        <WrapPanel Orientation="Horizontal">
+          <TextBox x:Name="SearchBox" Width="230" Margin="0,0,10,6" Watermark="Поиск (код, название, поставщик)..." TextChanged="OnSearchChanged" />
+          <ComboBox x:Name="WarehouseFilter" Width="220" Margin="0,0,10,6" SelectionChanged="OnFilterChanged" />
+          <CheckBox x:Name="LowStockCheck" Content="Только ниже минимума" Margin="0,0,14,6" IsCheckedChanged="OnLowStockChanged" />
+        </WrapPanel>
+      </Border>
+
+      <TabControl Grid.Row="2">
+        <TabItem Header="Остатки на складах">
+          <DataGrid x:Name="MaterialsGrid" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Код" Binding="{Binding MaterialCode}" Width="95" />
+              <DataGridTextColumn Header="Материал" Binding="{Binding MaterialName}" Width="*" />
+              <DataGridTextColumn Header="Склад" Binding="{Binding WarehouseName}" Width="160" />
+              <DataGridTextColumn Header="Ячейка" Binding="{Binding StorageCell}" Width="80" />
+              <DataGridTextColumn Header="Остаток" Binding="{Binding CurrentStock}" Width="85" />
+              <DataGridTextColumn Header="Мин." Binding="{Binding MinimumStock}" Width="75" />
+              <DataGridTextColumn Header="Ед." Binding="{Binding UnitOfMeasure}" Width="60" />
+              <DataGridTextColumn Header="Цена (₽)" Binding="{Binding UnitPrice}" Width="95" />
+              <DataGridTextColumn Header="Поставщик" Binding="{Binding SupplierName}" Width="150" />
+              <DataGridTemplateColumn Header="Движение" Width="135">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Button Content="Приход / Расход" Padding="8,4" FontSize="11" Click="OnAdjustClick" Tag="{Binding}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+        </TabItem>
+        <TabItem Header="Справочник поставщиков">
+          <DataGrid x:Name="SuppliersGrid" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Код" Binding="{Binding SupplierCode}" Width="100" />
+              <DataGridTextColumn Header="Поставщик" Binding="{Binding SupplierName}" Width="*" />
+              <DataGridTextColumn Header="ИНН" Binding="{Binding Inn}" Width="130" />
+              <DataGridTextColumn Header="Телефон" Binding="{Binding ContactPhone}" Width="150" />
+              <DataGridTextColumn Header="Email" Binding="{Binding ContactEmail}" Width="200" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </TabItem>
+      </TabControl>
+    </Grid>
+
+    <Border x:Name="AdjustModal" Background="#80000000" IsVisible="False">
+      <Border Width="420" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="card"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Корректировка складского остатка" FontSize="17" FontWeight="Bold" />
+          <TextBlock x:Name="AdjustTargetText" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <StackPanel Spacing="4">
+            <TextBlock Text="Изменение количества (+ приход, - списание)" FontSize="12" />
+            <TextBox x:Name="AdjustDeltaBox" Text="5" />
+          </StackPanel>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Причина / документ" FontSize="12" />
+            <TextBox x:Name="AdjustReasonBox" Watermark="Приход по накладной / инвентаризация" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Content="Отмена" Classes="secondary" Click="OnCancelAdjust" />
+            <Button Content="Применить" Classes="primary" Click="OnConfirmAdjust" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>

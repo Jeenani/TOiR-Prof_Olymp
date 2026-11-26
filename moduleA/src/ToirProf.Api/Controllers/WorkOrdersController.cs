@@ -143,6 +143,9 @@ public class WorkOrdersController : ControllerBase
         if (req.EquipmentId <= 0 || req.PriorityId <= 0 || string.IsNullOrWhiteSpace(req.Description))
             return BadRequest(new { message = "Оборудование, приоритет и описание дефекта обязательны" });
 
+        if (req.OrderType.Equals("emergency", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(req.FailureReason))
+            return BadRequest(new { message = "Для аварийной заявки необходимо указать причину отказа" });
+
         if (req.PlannedEndDate < req.PlannedStartDate)
             return BadRequest(new { message = "Плановая дата окончания не может быть раньше даты начала" });
 
@@ -201,6 +204,23 @@ public class WorkOrdersController : ControllerBase
         var team = await _db.RepairTeams.FindAsync(req.TeamId);
         if (team == null) return NotFound(new { message = $"Бригада с ID {req.TeamId} не найдена" });
 
+        var conflict = await _db.WorkOrders
+            .Where(w => w.WorkOrderId != id
+                     && w.AssignedTeamId == req.TeamId
+                     && (w.OrderStatusId == 1 || w.OrderStatusId == 2 || w.OrderStatusId == 3 || w.OrderStatusId == 4)
+                     && w.PlannedStartDate < wo.PlannedEndDate
+                     && w.PlannedEndDate > wo.PlannedStartDate)
+            .Select(w => new { w.OrderNumber, w.PlannedStartDate, w.PlannedEndDate })
+            .FirstOrDefaultAsync();
+
+        if (conflict != null)
+        {
+            return Conflict(new
+            {
+                message = $"Конфликт занятости: бригада '{team.TeamName}' уже назначена на заявку {conflict.OrderNumber} ({conflict.PlannedStartDate:dd.MM HH:mm} — {conflict.PlannedEndDate:dd.MM HH:mm})"
+            });
+        }
+
         wo.AssignedTeamId = req.TeamId;
         if (wo.OrderStatusId == 1) wo.OrderStatusId = 2;
         wo.UpdatedAt = DateTime.UtcNow;
@@ -215,11 +235,26 @@ public class WorkOrdersController : ControllerBase
     {
         var wo = await _db.WorkOrders
             .Include(w => w.Equipment)
-            .Include(w => w.WorkOrderMaterials).ThenInclude(wom => wom.WarehouseMaterial)
+            .Include(w => w.WorkOrderMaterials).ThenInclude(wom => wom.WarehouseMaterial).ThenInclude(wm => wm.Material)
             .FirstOrDefaultAsync(w => w.WorkOrderId == id);
 
         if (wo == null) return NotFound(new { message = $"Заявка с ID {id} не найдена" });
 
+        if ((req.OrderStatusId == 5 || req.OrderStatusId == 6) && wo.OrderStatusId != 5 && wo.OrderStatusId != 6)
+        {
+            foreach (var item in wo.WorkOrderMaterials)
+            {
+                if (item.WarehouseMaterial != null && item.WarehouseMaterial.CurrentStock < item.QuantityUsed)
+                {
+                    return BadRequest(new
+                    {
+                        message = $"Недостаточно материала '{item.WarehouseMaterial.Material.MaterialName}' на складе: доступно {item.WarehouseMaterial.CurrentStock}, требуется {item.QuantityUsed}"
+                    });
+                }
+            }
+        }
+
+        var prevStatus = wo.OrderStatusId;
         wo.OrderStatusId = req.OrderStatusId;
         if (req.ActualStartDate.HasValue) wo.ActualStartDate = req.ActualStartDate.Value;
         if (req.ActualEndDate.HasValue) wo.ActualEndDate = req.ActualEndDate.Value;
@@ -250,12 +285,15 @@ public class WorkOrdersController : ControllerBase
                 });
             }
 
-            foreach (var item in wo.WorkOrderMaterials)
+            if (prevStatus != 5 && prevStatus != 6)
             {
-                if (item.WarehouseMaterial != null)
+                foreach (var item in wo.WorkOrderMaterials)
                 {
-                    item.WarehouseMaterial.CurrentStock = Math.Max(0, item.WarehouseMaterial.CurrentStock - item.QuantityUsed);
-                    item.WarehouseMaterial.UpdatedAt = DateTime.UtcNow;
+                    if (item.WarehouseMaterial != null)
+                    {
+                        item.WarehouseMaterial.CurrentStock -= item.QuantityUsed;
+                        item.WarehouseMaterial.UpdatedAt = DateTime.UtcNow;
+                    }
                 }
             }
         }

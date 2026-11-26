@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ToirProf.Desktop.Views.ReportsView">
+  <ScrollViewer Padding="20">
+    <StackPanel Spacing="14">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <StackPanel>
+          <TextBlock Text="Отчёты и аналитика ТОиР" FontSize="22" FontWeight="Bold" />
+          <TextBlock Text="4 типа отчётов, предпросмотр с диаграммами, шаблоны и экспорт в PDF / Excel" FontSize="12" Foreground="#64748B" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="Экспорт в Excel (.xlsx)" Classes="secondary" Margin="0,0,8,0" Click="OnExportExcelClick" />
+        <Button Grid.Column="2" Content="Экспорт в PDF (.pdf)" Classes="primary" Click="OnExportPdfClick" />
+      </Grid>
+
+      <Border Classes="card" Padding="14">
+        <StackPanel Spacing="10">
+          <WrapPanel Orientation="Horizontal">
+            <StackPanel Margin="0,0,12,6" Spacing="4">
+              <TextBlock Text="Тип отчёта" FontSize="11" FontWeight="SemiBold" />
+              <ComboBox x:Name="ReportTypeBox" Width="250" SelectedIndex="0">
+                <ComboBoxItem Content="1. Простои оборудования (Топ и итоги)" Tag="downtime" />
+                <ComboBoxItem Content="2. Выполнение графика ТО" Tag="to" />
+                <ComboBoxItem Content="3. Сводный отчёт по цеху (БД)" Tag="workshop" />
+                <ComboBoxItem Content="4. Складские запасы и стоимость" Tag="materials" />
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Margin="0,0,12,6" Spacing="4">
+              <TextBlock Text="Цех" FontSize="11" FontWeight="SemiBold" />
+              <ComboBox x:Name="WorkshopBox" Width="200" />
+            </StackPanel>
+            <StackPanel Margin="0,0,12,6" Spacing="4">
+              <TextBlock Text="Период (дней)" FontSize="11" FontWeight="SemiBold" />
+              <ComboBox x:Name="PeriodBox" Width="130" SelectedIndex="1">
+                <ComboBoxItem Content="7 дней" Tag="7" />
+                <ComboBoxItem Content="30 дней" Tag="30" />
+                <ComboBoxItem Content="90 дней" Tag="90" />
+                <ComboBoxItem Content="365 дней" Tag="365" />
+              </ComboBox>
+            </StackPanel>
+            <Button Content="Сформировать отчёт" Classes="primary" VerticalAlignment="Bottom" Margin="0,0,8,6" Click="OnGenerateClick" />
+          </WrapPanel>
+
+          <Border BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+            <WrapPanel Orientation="Horizontal">
+              <TextBox x:Name="TemplateNameBox" Width="210" Margin="0,0,8,4" Watermark="Название шаблона..." />
+              <Button Content="Сохранить шаблон" Classes="secondary" Margin="0,0,14,4" Click="OnSaveTemplateClick" />
+              <ComboBox x:Name="TemplatesBox" Width="210" Margin="0,0,8,4" PlaceholderText="Сохранённые шаблоны..." />
+              <Button Content="Применить шаблон" Classes="secondary" Margin="0,0,8,4" Click="OnApplyTemplateClick" />
+            </WrapPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <Grid ColumnDefinitions="1.2*,*">
+        <Border Grid.Column="0" Classes="card" Margin="0,0,14,0">
+          <StackPanel Spacing="8">
+            <TextBlock x:Name="PreviewTitle" Text="Табличный предпросмотр" FontSize="15" FontWeight="SemiBold" />
+            <DataGrid x:Name="PreviewGrid" AutoGenerateColumns="False" IsReadOnly="True" Height="340" GridLinesVisibility="Horizontal">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Показатель / Объект" Binding="{Binding Col1}" Width="*" />
+                <DataGridTextColumn Header="Подразделение / Код" Binding="{Binding Col2}" Width="140" />
+                <DataGridTextColumn Header="Значение" Binding="{Binding Col3}" Width="105" />
+                <DataGridTextColumn Header="Ед. / Статус" Binding="{Binding Col4}" Width="110" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Визуализация (диаграмма показателей)" FontSize="15" FontWeight="SemiBold" />
+            <ScrollViewer MaxHeight="340">
+              <ItemsControl x:Name="ChartBarsList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Margin="0,0,0,10" Spacing="4">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding Label}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontWeight="Bold" FontSize="12" />
+                      </Grid>
+                      <Border Background="#E2E8F0" Height="14" CornerRadius="4" HorizontalAlignment="Stretch">
+                        <Border Background="{Binding BarColor}" Height="14" CornerRadius="4"
+                                Width="{Binding BarWidth}" HorizontalAlignment="Left" />
+                      </Border>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

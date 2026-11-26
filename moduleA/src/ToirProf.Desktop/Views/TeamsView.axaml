@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ToirProf.Desktop.Views.TeamsView">
+  <Grid RowDefinitions="Auto,*" Margin="20">
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,14">
+      <StackPanel>
+        <TextBlock Text="Ремонтные бригады и загрузка" FontSize="22" FontWeight="Bold" />
+        <TextBlock Text="Состав бригад, обслуживаемые цехи (мобильность М:N) и активные заявки" FontSize="12" Foreground="#64748B" />
+      </StackPanel>
+      <ComboBox x:Name="WorkshopFilter" Grid.Column="1" Width="220" Margin="0,0,10,0"
+                SelectionChanged="OnWorkshopChanged" PlaceholderText="Все цехи" />
+      <Button Grid.Column="2" Content="↻ Обновить" Classes="secondary" Click="OnRefreshClick" />
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="1.1*,*">
+      <Border Grid.Column="0" Classes="card" Margin="0,0,14,0">
+        <DataGrid x:Name="TeamsGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionChanged="OnTeamSelected" GridLinesVisibility="Horizontal">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Код" Binding="{Binding TeamCode}" Width="90" />
+            <DataGridTextColumn Header="Бригада" Binding="{Binding TeamName}" Width="*" />
+            <DataGridTextColumn Header="Специализация" Binding="{Binding Specialization}" Width="140" />
+            <DataGridTextColumn Header="Обслуживаемые цехи" Binding="{Binding WorkshopsDisplay}" Width="*" />
+            <DataGridTextColumn Header="Загрузка" Binding="{Binding WorkloadLabel}" Width="130" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Border>
+
+      <Border Grid.Column="1" Classes="card">
+        <ScrollViewer>
+          <StackPanel x:Name="TeamDetailPanel" Spacing="14">
+            <TextBlock x:Name="TeamTitleText" Text="Выберите бригаду слева" FontSize="18" FontWeight="Bold" />
+            <TextBlock x:Name="TeamMetaText" Foreground="#64748B" TextWrapping="Wrap" />
+
+            <TextBlock Text="Состав бригады" FontWeight="SemiBold" FontSize="14" />
+            <ItemsControl x:Name="MembersList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="#F1F5F9" CornerRadius="6" Padding="8" Margin="0,0,0,6">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="Medium" Foreground="#0F172A" />
+                      <TextBlock Grid.Column="1" Text="{Binding Phone}" Foreground="#475569" FontSize="12" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="Активные заявки в работе" FontWeight="SemiBold" FontSize="14" />
+            <DataGrid x:Name="TeamOrdersGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                      Height="220" GridLinesVisibility="Horizontal">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Заявка" Binding="{Binding OrderNumber}" Width="110" />
+                <DataGridTextColumn Header="Оборудование" Binding="{Binding EquipmentName}" Width="*" />
+                <DataGridTextColumn Header="Статус" Binding="{Binding StatusName}" Width="110" />
+                <DataGridTextColumn Header="Приоритет" Binding="{Binding PriorityName}" Width="100" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

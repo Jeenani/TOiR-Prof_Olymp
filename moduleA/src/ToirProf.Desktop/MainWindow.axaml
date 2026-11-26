@@ -1,0 +1,145 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ToirProf.Desktop.MainWindow"
+        Title="АИС «ТОиР-Проф» — Рабочее место специалиста"
+        Width="1360" Height="840" MinWidth="1024" MinHeight="680"
+        WindowStartupLocation="CenterScreen">
+  <Grid>
+    <ContentControl x:Name="LoginContainer" IsVisible="True" />
+
+    <Grid x:Name="ShellGrid" ColumnDefinitions="235,*" IsVisible="False">
+      <Border Grid.Column="0" Background="#0F172A" Padding="12,16">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="6,0,6,20">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Border Width="36" Height="36" CornerRadius="8" Background="#2563EB">
+                <TextBlock Text="ТО" Foreground="White" FontWeight="Bold" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="ТОиР-Проф" Foreground="White" FontWeight="Bold" FontSize="16" />
+                <TextBlock Text="Desktop Client" Foreground="#94A3B8" FontSize="11" />
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="4,12,4,0">
+            <TextBlock x:Name="IdleCountdownText" Text="Автоблокировка: 15с" Foreground="#94A3B8" FontSize="11" />
+            <TextBlock Text="Ctrl+N: Заявка | F5: Обновить | Ctrl+L: Блок" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" />
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="ОПЕРАТИВНЫЙ УЧЁТ" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="8,4,0,4" />
+            <Button x:Name="NavDashboard" Content="🏠  Главная" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnNavClick" Tag="Dashboard" />
+            <Button x:Name="NavOrders" Content="📋  Заявки" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnNavClick" Tag="WorkOrders" />
+            <Button x:Name="NavEquipment" Content="⚙️  Оборудование" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnNavClick" Tag="Equipment" />
+
+            <TextBlock Text="ПЛАНИРОВАНИЕ И РЕСУРСЫ" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="8,14,0,4" />
+            <Button x:Name="NavSchedules" Content="📅  График ТО" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnNavClick" Tag="Schedules" />
+            <Button x:Name="NavMaterials" Content="📦  Материалы" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnNavClick" Tag="Materials" />
+            <Button x:Name="NavTeams" Content="👷  Бригады" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnNavClick" Tag="Teams" />
+
+            <TextBlock Text="АНАЛИТИКА И СИСТЕМА" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="8,14,0,4" />
+            <Button x:Name="NavReports" Content="📊  Отчёты" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnNavClick" Tag="Reports" />
+            <Button x:Name="NavSettings" Content="🔧  Настройки" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnNavClick" Tag="Settings" />
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto">
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="16,10">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="BreadcrumbText" Text="Главная" FontSize="13" FontWeight="SemiBold" Foreground="#475569" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+              <Button x:Name="BellBtn" Classes="secondary" Click="OnToggleNotificationsClick" ToolTip.Tip="Уведомления">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="🔔" />
+                  <Border x:Name="NotifBadge" Background="#DC2626" CornerRadius="10" Padding="6,1" IsVisible="False">
+                    <TextBlock x:Name="NotifCountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold" />
+                  </Border>
+                </StackPanel>
+              </Button>
+              <Border Width="34" Height="34" CornerRadius="17" Background="#1E40AF">
+                <TextBlock x:Name="UserAvatarText" Text="АИ" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="UserNameText" Text="Пользователь" FontWeight="SemiBold" FontSize="13" />
+                <TextBlock x:Name="UserRoleText" Text="Роль • Цех" FontSize="11" Foreground="#64748B" />
+              </StackPanel>
+              <Button Content="🔒" Classes="secondary" ToolTip.Tip="Заблокировать (Ctrl+L)" Click="OnManualLockClick" />
+              <Button Content="Выход" Classes="secondary" Click="OnLogoutClick" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ProgressBar x:Name="GlobalProgress" Grid.Row="1" IsIndeterminate="True" Height="3" IsVisible="False" />
+        <ContentControl x:Name="PageHost" Grid.Row="2" />
+        <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" Padding="14,6">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="StatusBarText" Text="Готово к работе" FontSize="11" Foreground="#64748B" />
+            <TextBlock x:Name="DraftsBadgeText" Grid.Column="1" Text="" FontSize="11" Foreground="#D97706" FontWeight="SemiBold" />
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <Border x:Name="NotifPopup" Width="360" MaxHeight="380" HorizontalAlignment="Right" VerticalAlignment="Top"
+            Margin="0,58,180,0" Classes="card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+            BoxShadow="0 10 30 0 #40000000" IsVisible="False">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="События и предупреждения" FontWeight="Bold" FontSize="14" />
+          <Button Grid.Column="1" Content="✕" Padding="6,2" Click="OnCloseNotificationsClick" />
+        </Grid>
+        <ScrollViewer MaxHeight="300">
+          <ItemsControl x:Name="NotifList">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Padding="8" Margin="0,0,0,6" CornerRadius="6" Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" Foreground="#991B1B" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#7F1D1D" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </StackPanel>
+    </Border>
+
+    <Border x:Name="ToastBanner" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="20"
+            CornerRadius="8" Padding="14,10" Background="#0F766E" BoxShadow="0 6 20 0 #40000000" IsVisible="False">
+      <TextBlock x:Name="ToastText" Foreground="White" FontWeight="SemiBold" FontSize="13" MaxWidth="380" TextWrapping="Wrap" />
+    </Border>
+
+    <Border x:Name="ErrorModal" Background="#80000000" IsVisible="False">
+      <Border Width="450" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="card"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="12">
+          <TextBlock x:Name="ErrorModalTitle" Text="Ошибка операции" FontSize="17" FontWeight="Bold" Foreground="#DC2626" />
+          <TextBlock x:Name="ErrorModalMessage" TextWrapping="Wrap" FontSize="13" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Content="Отмена" Classes="secondary" Click="OnErrorModalCancel" />
+            <Button x:Name="ErrorRetryBtn" Content="Повторить попытку" Classes="primary" Click="OnErrorModalRetry" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border x:Name="LockOverlay" Background="#E60F172A" IsVisible="False">
+      <Border Width="380" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="card"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="12">
+          <TextBlock Text="🔒 Сеанс заблокирован" FontSize="19" FontWeight="Bold" HorizontalAlignment="Center" />
+          <TextBlock x:Name="LockUserLabel" Text="Пользователь" HorizontalAlignment="Center" Foreground="#64748B" FontSize="12" />
+          <TextBox x:Name="UnlockPasswordBox" PasswordChar="•" Watermark="Введите пароль для разблокировки..." />
+          <TextBlock x:Name="UnlockErrorText" Foreground="#DC2626" FontSize="12" IsVisible="False" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Content="Сменить пользователя" Classes="secondary" Click="OnLogoutClick" />
+            <Button Content="Разблокировать" Classes="primary" Click="OnUnlockClick" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</Window>
