@@ -23,6 +23,8 @@ public partial class EquipmentView : UserControl, IPageView
     private int? _editingId;
     private int? _deletingId;
     private int? _detailEqId;
+    private bool _isReady;
+    private bool _isLoading;
 
     public EquipmentView() : this(null!) { }
 
@@ -30,11 +32,13 @@ public partial class EquipmentView : UserControl, IPageView
     {
         InitializeComponent();
         _host = host;
+        _isReady = true;
     }
 
     public async Task LoadAsync()
     {
-        if (_host == null) return;
+        if (_host == null || _isLoading) return;
+        _isLoading = true;
         _host.SetBreadcrumb("Оперативный учёт", "Оборудование");
         ApplyColumnSettings();
         _host.SetLoading(true, "Загрузка оборудования...");
@@ -86,6 +90,7 @@ public partial class EquipmentView : UserControl, IPageView
         }
         finally
         {
+            _isLoading = false;
             _host.SetLoading(false);
         }
     }
@@ -100,10 +105,11 @@ public partial class EquipmentView : UserControl, IPageView
     public void FocusSearch() => SearchBox.Focus();
     public void TriggerNew() => OnAddClick(this, new RoutedEventArgs());
 
-    private async void OnSearchClick(object? sender, RoutedEventArgs e) { _page = 1; await LoadAsync(); }
-    private async void OnFilterChanged(object? sender, SelectionChangedEventArgs e) { if (IsVisible && _workshops.Count > 0) { _page = 1; await LoadAsync(); } }
+    private async void OnSearchClick(object? sender, RoutedEventArgs e) { if (!_isReady || _host == null) return; _page = 1; await LoadAsync(); }
+    private async void OnFilterChanged(object? sender, SelectionChangedEventArgs e) { if (_isReady && !_isLoading && IsVisible && _workshops.Count > 0) { _page = 1; await LoadAsync(); } }
     private async void OnResetClick(object? sender, RoutedEventArgs e)
     {
+        if (!_isReady || _host == null) return;
         SearchBox.Text = "";
         ModelFilter.Text = "";
         WorkshopFilter.SelectedIndex = 0;
@@ -114,6 +120,7 @@ public partial class EquipmentView : UserControl, IPageView
 
     private async void OnPageSizeChanged(object? sender, SelectionChangedEventArgs e)
     {
+        if (!_isReady || _host == null || PageSizeBox == null) return;
         if (PageSizeBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Content?.ToString(), out var ps))
         {
             _pageSize = ps;

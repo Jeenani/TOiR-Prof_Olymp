@@ -25,12 +25,15 @@ public class UserProfileDto
     public string FirstName { get; set; } = "";
     public string LastName { get; set; } = "";
     public string? Patronymic { get; set; }
-    public string FullName { get; set; } = "";
+        public string FullName { get; set; } = "";
     public int RoleId { get; set; }
     public string RoleCode { get; set; } = "";
     public string RoleName { get; set; } = "";
     public int? WorkshopId { get; set; }
     public string? WorkshopName { get; set; }
+
+    public string DisplayFullName =>
+        !string.IsNullOrWhiteSpace(FullName) ? FullName : $"{LastName} {FirstName} {Patronymic}".Trim();
 
     public string Initials
     {

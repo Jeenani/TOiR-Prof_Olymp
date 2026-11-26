@@ -24,6 +24,8 @@ public partial class WorkOrdersView : UserControl, IPageView
     private string _sortBy = "createdAt";
     private bool _sortDesc = true;
     private WorkOrderDetailDto? _currentDetail;
+    private bool _isReady;
+    private bool _isLoading;
 
     public WorkOrdersView() : this(null!) { }
 
@@ -31,11 +33,13 @@ public partial class WorkOrdersView : UserControl, IPageView
     {
         InitializeComponent();
         _host = host;
+        _isReady = true;
     }
 
     public async Task LoadAsync()
     {
-        if (_host == null) return;
+        if (_host == null || _isLoading) return;
+        _isLoading = true;
         _host.SetBreadcrumb("Оперативный учёт", "Заявки на ремонт");
         OrdersGrid.Columns[6].IsVisible = _host.Settings.ShowTeamColumn;
         _host.SetLoading(true, "Загрузка заявок...");
@@ -64,7 +68,7 @@ public partial class WorkOrdersView : UserControl, IPageView
             PrevBtn.IsEnabled = _page > 1;
             NextBtn.IsEnabled = _page < _totalPages;
         }
-        finally { _host.SetLoading(false); }
+        finally { _isLoading = false; _host.SetLoading(false); }
     }
 
     private async Task EnsureDictionariesAsync()
@@ -111,10 +115,19 @@ public partial class WorkOrdersView : UserControl, IPageView
 
     public void FocusSearch() => SearchBox.Focus();
     public void TriggerNew() => OpenCreateModal();
-    private async void OnSearchClick(object? sender, RoutedEventArgs e) { _page = 1; await LoadAsync(); }
-    private async void OnFilterChanged(object? sender, SelectionChangedEventArgs e) { if (IsVisible && _workshops.Count > 0) { _page = 1; await LoadAsync(); } }
-    private async void OnResetClick(object? sender, RoutedEventArgs e) { SearchBox.Text = ""; DateFromBox.Text = ""; WorkshopFilter.SelectedIndex = 0; StatusFilter.SelectedIndex = 0; PriorityFilter.SelectedIndex = 0; _page = 1; await LoadAsync(); }
-    private async void OnPageSizeChanged(object? sender, SelectionChangedEventArgs e) { if (PageSizeBox.SelectedItem is ComboBoxItem it && int.TryParse(it.Content?.ToString(), out var ps)) { _pageSize = ps; _page = 1; if (IsVisible) await LoadAsync(); } }
+    private async void OnSearchClick(object? sender, RoutedEventArgs e) { if (!_isReady || _host == null) return; _page = 1; await LoadAsync(); }
+    private async void OnFilterChanged(object? sender, SelectionChangedEventArgs e) { if (_isReady && !_isLoading && IsVisible && _workshops.Count > 0) { _page = 1; await LoadAsync(); } }
+    private async void OnResetClick(object? sender, RoutedEventArgs e) { if (!_isReady || _host == null) return; SearchBox.Text = ""; DateFromBox.Text = ""; WorkshopFilter.SelectedIndex = 0; StatusFilter.SelectedIndex = 0; PriorityFilter.SelectedIndex = 0; _page = 1; await LoadAsync(); }
+    private async void OnPageSizeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!_isReady || _host == null || PageSizeBox == null) return;
+        if (PageSizeBox.SelectedItem is ComboBoxItem it && int.TryParse(it.Content?.ToString(), out var ps))
+        {
+            _pageSize = ps;
+            _page = 1;
+            if (IsVisible) await LoadAsync();
+        }
+    }
     private async void OnPrevPage(object? sender, RoutedEventArgs e) { if (_page > 1) { _page--; await LoadAsync(); } }
     private async void OnNextPage(object? sender, RoutedEventArgs e) { if (_page < _totalPages) { _page++; await LoadAsync(); } }
     private async void OnGridSorting(object? sender, DataGridColumnEventArgs e)

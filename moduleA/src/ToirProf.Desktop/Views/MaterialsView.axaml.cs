@@ -82,10 +82,10 @@ public partial class MaterialsView : UserControl, IPageView
 
     public void FocusSearch() => SearchBox.Focus();
 
-    private void OnSearchChanged(object? sender, TextChangedEventArgs e) => ApplyLocalSearch();
-    private async void OnFilterChanged(object? sender, SelectionChangedEventArgs e) { if (IsVisible && _warehouses.Count > 0) await LoadAsync(); }
-    private async void OnLowStockChanged(object? sender, RoutedEventArgs e) { if (IsVisible) await LoadAsync(); }
-    private async void OnRefreshClick(object? sender, RoutedEventArgs e) => await LoadAsync();
+    private void OnSearchChanged(object? sender, TextChangedEventArgs e) { if (_host != null) ApplyLocalSearch(); }
+    private async void OnFilterChanged(object? sender, SelectionChangedEventArgs e) { if (_host != null && IsVisible && _warehouses.Count > 0) await LoadAsync(); }
+    private async void OnLowStockChanged(object? sender, RoutedEventArgs e) { if (_host != null && IsVisible) await LoadAsync(); }
+    private async void OnRefreshClick(object? sender, RoutedEventArgs e) { if (_host != null) await LoadAsync(); }
 
     private void OnAdjustClick(object? sender, RoutedEventArgs e)
     {

@@ -102,9 +102,9 @@ public partial class MainWindow : Window, IDesktopHost
         ShellGrid.IsVisible = true;
 
         UserAvatarText.Text = user.Initials;
-        UserNameText.Text = user.FullName;
+        UserNameText.Text = user.DisplayFullName;
         UserRoleText.Text = $"{user.RoleName}" + (string.IsNullOrWhiteSpace(user.WorkshopName) ? "" : $" • {user.WorkshopName}");
-        LockUserLabel.Text = $"{user.FullName} ({user.Email})";
+        LockUserLabel.Text = $"{user.DisplayFullName} ({user.Email})";
 
         EnsureViews();
         NavigateTo("Dashboard");
