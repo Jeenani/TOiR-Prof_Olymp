@@ -19,11 +19,11 @@
    ```sql
    CREATE DATABASE toir_prof ENCODING 'UTF8';
    ```
-3. Примените полный скрипт создания 22 таблиц 3НФ, триггеров/процедур и тестовых данных:
+3. Примените единый скрипт создания 22 таблиц 3НФ, триггеров/процедур и тестовых данных:
    ```powershell
-   psql -U postgres -d toir_prof -f moduleA/database/full_database_setup.sql
+   psql -U postgres -d toir_prof -f moduleA/database/toir_prof_db.sql
    ```
-   *(Альтернативно: `python moduleA/database/apply_setup.py` — автоматически пересоздаст БД и проверит наличие $\ge 5$ записей во всех 22 таблицах.)*
+   *(Альтернативно: `python moduleA/database/apply_setup.py` — автоматически применит `toir_prof_db.sql` и проверит наличие $\ge 5$ записей во всех 22 таблицах.)*
 
 ### Шаг 2. Настройка и запуск серверного REST API (`ToirProf.Api`)
 1. Откройте `moduleA/src/ToirProf.Api/appsettings.json` и проверьте строку подключения к БД и параметры JWT.
