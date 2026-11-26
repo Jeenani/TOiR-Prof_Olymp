@@ -88,5 +88,23 @@ public static partial class OperationsEndpoints
 
             return Results.Ok(new { dynamics, topMaterials, teamsRating, schByWorkshop });
         });
+
+        an.MapGet("/stream", async (HttpContext ctx, CancellationToken ct) =>
+        {
+            ctx.Response.Headers.ContentType = "text/event-stream";
+            ctx.Response.Headers.CacheControl = "no-cache";
+            await ctx.Response.WriteAsync($"data: {{\"type\":\"connected\",\"ts\":\"{DateTime.UtcNow:O}\"}}\n\n", ct);
+            await ctx.Response.Body.FlushAsync(ct);
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    await Task.Delay(15000, ct);
+                    await ctx.Response.WriteAsync($"data: {{\"type\":\"heartbeat\",\"ts\":\"{DateTime.UtcNow:O}\"}}\n\n", ct);
+                    await ctx.Response.Body.FlushAsync(ct);
+                }
+            }
+            catch (OperationCanceledException) { }
+        });
     }
 }
