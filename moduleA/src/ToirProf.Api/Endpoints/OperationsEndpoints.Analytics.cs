@@ -54,5 +54,39 @@ public static partial class OperationsEndpoints
                 new { MetricName = "Суммарный простой оборудования", MetricValue = await db.WorkOrders.Where(w => w.Equipment.WorkshopId == workshopId && w.CreatedAt >= s && w.CreatedAt <= e).SumAsync(w => (decimal?)w.DowntimeHours) ?? 0m, Unit = "час." }
             });
         });
+
+        an.MapGet("/details", async (int? workshopId, string? orderType, ToirDbContext db) =>
+        {
+            var woQ = db.WorkOrders.Include(w => w.Equipment).AsQueryable();
+            if (workshopId > 0) woQ = woQ.Where(w => w.Equipment.WorkshopId == workshopId);
+            if (!string.IsNullOrWhiteSpace(orderType) && orderType != "all") woQ = woQ.Where(w => w.OrderType == orderType);
+
+            var dynamics = await woQ.OrderBy(w => w.CreatedAt)
+                .Select(w => new { Label = w.CreatedAt.ToString("dd.MM"), w.DowntimeHours })
+                .ToListAsync();
+
+            var topMaterials = await db.WorkOrderMaterials.Include(m => m.WarehouseMaterial).ThenInclude(wm => wm.Material)
+                .GroupBy(m => new { m.WarehouseMaterial.Material.MaterialCode, m.WarehouseMaterial.Material.MaterialName, m.WarehouseMaterial.Material.UnitOfMeasure })
+                .Select(g => new { Code = g.Key.MaterialCode, Name = g.Key.MaterialName, Unit = g.Key.UnitOfMeasure, Used = g.Sum(x => x.QuantityUsed), Cost = g.Sum(x => x.QuantityUsed * x.HistoricalUnitPrice) })
+                .OrderByDescending(x => x.Cost).Take(10).ToListAsync();
+
+            var teamsRating = await db.RepairTeams.Include(t => t.TeamMembers).ThenInclude(tm => tm.User).Include(t => t.WorkOrders)
+                .Select(t => new
+                {
+                    Id = t.TeamId, Name = t.TeamName,
+                    Leader = t.TeamMembers.Where(m => m.IsTeamLeader).Select(m => (m.User.LastName + " " + m.User.FirstName)).FirstOrDefault() ?? "—",
+                    OrdersDone = t.WorkOrders.Count(w => w.OrderStatusId == 5 || w.OrderStatusId == 6),
+                    AvgHours = t.WorkOrders.Where(w => w.DowntimeHours > 0).Select(w => (decimal?)w.DowntimeHours).Average() ?? 0m
+                }).ToListAsync();
+
+            var schByWorkshop = await db.Workshops.Select(ws => new
+            {
+                ws.WorkshopName,
+                Planned = ws.EquipmentList.SelectMany(e => e.MaintenanceSchedules).Count(),
+                Completed = ws.EquipmentList.SelectMany(e => e.MaintenanceSchedules).Count(s => s.ScheduleStatus == "completed")
+            }).ToListAsync();
+
+            return Results.Ok(new { dynamics, topMaterials, teamsRating, schByWorkshop });
+        });
     }
 }

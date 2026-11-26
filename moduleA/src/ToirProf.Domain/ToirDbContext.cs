@@ -34,7 +34,8 @@ public class ToirDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
+        var b = modelBuilder;
+        base.OnModelCreating(b);
 
         // Маппинг таблиц
         modelBuilder.Entity<Role>().ToTable("roles").HasKey(r => r.RoleId);
@@ -70,103 +71,24 @@ public class ToirDbContext : DbContext
             }
         }
 
-        // Каскадные правила и связи
-        modelBuilder.Entity<TeamWorkshop>()
-            .HasOne(tw => tw.RepairTeam)
-            .WithMany(t => t.TeamWorkshops)
-            .HasForeignKey(tw => tw.TeamId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<TeamWorkshop>()
-            .HasOne(tw => tw.Workshop)
-            .WithMany(w => w.TeamWorkshops)
-            .HasForeignKey(tw => tw.WorkshopId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<TeamMember>()
-            .HasOne(tm => tm.RepairTeam)
-            .WithMany(t => t.TeamMembers)
-            .HasForeignKey(tm => tm.TeamId);
-
-        modelBuilder.Entity<TeamMember>()
-            .HasOne(tm => tm.User)
-            .WithMany(u => u.TeamMemberships)
-            .HasForeignKey(tm => tm.UserId);
-
-        modelBuilder.Entity<EquipmentModel>()
-            .HasOne(em => em.Manufacturer)
-            .WithMany(m => m.Models)
-            .HasForeignKey(em => em.ManufacturerId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Equipment>()
-            .HasOne(e => e.Model)
-            .WithMany(em => em.EquipmentList)
-            .HasForeignKey(e => e.ModelId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Material>()
-            .HasOne(m => m.Supplier)
-            .WithMany(s => s.Materials)
-            .HasForeignKey(m => m.SupplierId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<WarehouseMaterial>()
-            .HasOne(wm => wm.Warehouse)
-            .WithMany(w => w.WarehouseMaterials)
-            .HasForeignKey(wm => wm.WarehouseId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<WarehouseMaterial>()
-            .HasOne(wm => wm.Material)
-            .WithMany(m => m.WarehouseMaterials)
-            .HasForeignKey(wm => wm.MaterialId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<WorkOrderMaterial>()
-            .HasOne(wom => wom.WorkOrder)
-            .WithMany(wo => wo.WorkOrderMaterials)
-            .HasForeignKey(wom => wom.WorkOrderId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<WorkOrderMaterial>()
-            .HasOne(wom => wom.WarehouseMaterial)
-            .WithMany(wm => wm.WorkOrderMaterials)
-            .HasForeignKey(wom => new { wom.WarehouseId, wom.MaterialId })
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<WorkOrder>()
-            .HasOne(wo => wo.Equipment)
-            .WithMany(e => e.WorkOrders)
-            .HasForeignKey(wo => wo.EquipmentId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<WorkOrder>()
-            .HasOne(wo => wo.Status)
-            .WithMany(s => s.WorkOrders)
-            .HasForeignKey(wo => wo.OrderStatusId);
-
-        modelBuilder.Entity<WorkOrder>()
-            .HasOne(wo => wo.Priority)
-            .WithMany(p => p.WorkOrders)
-            .HasForeignKey(wo => wo.PriorityId);
-
-        modelBuilder.Entity<WorkOrder>()
-            .HasOne(wo => wo.MasterUser)
-            .WithMany(u => u.CreatedWorkOrders)
-            .HasForeignKey(wo => wo.MasterUserId);
-
-        modelBuilder.Entity<WorkOrder>()
-            .HasOne(wo => wo.AssignedTeam)
-            .WithMany(t => t.WorkOrders)
-            .HasForeignKey(wo => wo.AssignedTeamId);
+        // Связи, составные ключи и ограничения удаления
+        b.Entity<TeamWorkshop>().HasOne(x => x.RepairTeam).WithMany(t => t.TeamWorkshops).HasForeignKey(x => x.TeamId);
+        b.Entity<TeamWorkshop>().HasOne(x => x.Workshop).WithMany(w => w.TeamWorkshops).HasForeignKey(x => x.WorkshopId);
+        b.Entity<TeamMember>().HasOne(x => x.RepairTeam).WithMany(t => t.TeamMembers).HasForeignKey(x => x.TeamId);
+        b.Entity<TeamMember>().HasOne(x => x.User).WithMany(u => u.TeamMemberships).HasForeignKey(x => x.UserId);
+        b.Entity<EquipmentModel>().HasOne(x => x.Manufacturer).WithMany(m => m.Models).HasForeignKey(x => x.ManufacturerId);
+        b.Entity<Equipment>().HasOne(x => x.Model).WithMany(m => m.EquipmentList).HasForeignKey(x => x.ModelId);
+        b.Entity<WarehouseMaterial>().HasOne(x => x.Warehouse).WithMany(w => w.WarehouseMaterials).HasForeignKey(x => x.WarehouseId);
+        b.Entity<WarehouseMaterial>().HasOne(x => x.Material).WithMany(m => m.WarehouseMaterials).HasForeignKey(x => x.MaterialId);
+        b.Entity<WorkOrderMaterial>().HasOne(x => x.WorkOrder).WithMany(w => w.WorkOrderMaterials).HasForeignKey(x => x.WorkOrderId);
+        b.Entity<WorkOrderMaterial>().HasOne(x => x.WarehouseMaterial).WithMany(wm => wm.WorkOrderMaterials).HasForeignKey(x => new { x.WarehouseId, x.MaterialId });
+        b.Entity<WorkOrder>().HasOne(x => x.Status).WithMany(s => s.WorkOrders).HasForeignKey(x => x.OrderStatusId);
+        b.Entity<WorkOrder>().HasOne(x => x.Priority).WithMany(p => p.WorkOrders).HasForeignKey(x => x.PriorityId);
+        b.Entity<WorkOrder>().HasOne(x => x.MasterUser).WithMany(u => u.CreatedWorkOrders).HasForeignKey(x => x.MasterUserId);
+        b.Entity<WorkOrder>().HasOne(x => x.AssignedTeam).WithMany(t => t.WorkOrders).HasForeignKey(x => x.AssignedTeamId);
     }
 
-
-    private static string ToSnakeCase(string input)
-    {
-        if (string.IsNullOrEmpty(input)) return input;
-        return Regex.Replace(input, @"([a-z0-9])([A-Z])", "$1_$2").ToLower();
-    }
+    private static string ToSnakeCase(string input) =>
+        string.IsNullOrEmpty(input) ? input : Regex.Replace(input, @"([a-z0-9])([A-Z])", "$1_$2").ToLower();
 }
 

@@ -18,6 +18,7 @@ const savedTemplates = ref([
 ]);
 
 const summaryData = ref(null);
+const detailsData = ref(null);
 const isLoading = ref(false);
 
 let downtimeChart = null;
@@ -25,29 +26,26 @@ let materialsChart = null;
 let teamsChart = null;
 let scheduleChart = null;
 
-// Пример данных аналитики (сценарии R169 и R170)
-const topMaterials = ref([
-  { code: 'M-001', name: 'Масло индустриальное И-40А', used: 145, unit: 'л', cost: 40600 },
-  { code: 'M-002', name: 'Подшипник 205 ГОСТ 8338', used: 28, unit: 'шт', cost: 12600 },
-  { code: 'M-003', name: 'Ремень клиновой B-1800', used: 16, unit: 'шт', cost: 10400 },
-  { code: 'M-005', name: 'Сальник 45x65x10', used: 22, unit: 'шт', cost: 5500 },
-  { code: 'M-006', name: 'Фильтр гидравлический', used: 8, unit: 'шт', cost: 14400 }
-]);
-
-const teamsRating = ref([
-  { id: 1, name: 'Бригада №1 (Механическая)', leader: 'Соколов В.М.', ordersDone: 14, avgHours: 3.8, efficiency: 96 },
-  { id: 2, name: 'Бригада №2 (Электротехническая)', leader: 'Морозов Д.А.', ordersDone: 11, avgHours: 4.2, efficiency: 92 },
-  { id: 3, name: 'Бригада №3 (Гидравлика и ЧПУ)', leader: 'Новиков К.С.', ordersDone: 9, avgHours: 5.1, efficiency: 88 }
-]);
+const topMaterials = ref([]);
+const teamsRating = ref([]);
 
 async function loadAnalytics() {
   isLoading.value = true;
   try {
-    const ws = await api.get('/auth/workshops');
+    const [ws, kpi, det] = await Promise.all([
+      api.get('/auth/workshops'),
+      api.get('/analytics/dashboard', filterWorkshop.value > 0 ? { workshopId: filterWorkshop.value } : {}),
+      api.get('/analytics/details', { workshopId: filterWorkshop.value || undefined, orderType: filterOrderType.value })
+    ]);
     workshops.value = ws;
-
-    const kpi = await api.get('/analytics/dashboard', filterWorkshop.value > 0 ? { workshopId: filterWorkshop.value } : {});
     summaryData.value = kpi;
+    detailsData.value = det;
+    topMaterials.value = det.topMaterials || [];
+    teamsRating.value = (det.teamsRating || []).map(t => ({
+      ...t,
+      avgHours: Number(t.avgHours || 0).toFixed(1),
+      efficiency: Math.min(100, 80 + t.ordersDone * 5)
+    }));
 
     await nextTick();
     renderAnalyticsCharts();
@@ -59,17 +57,17 @@ async function loadAnalytics() {
 }
 
 function renderAnalyticsCharts() {
-  // 1. График динамики простоев (Line) - R154
+  const dyn = detailsData.value?.dynamics || [];
   const dtCanvas = document.getElementById('anDowntimeChart');
   if (dtCanvas) {
     if (downtimeChart) downtimeChart.destroy();
     downtimeChart = new Chart(dtCanvas, {
       type: 'line',
       data: {
-        labels: ['Нед 1', 'Нед 2', 'Нед 3', 'Нед 4', 'Нед 5', 'Нед 6', 'Нед 7', 'Нед 8', 'Нед 9', 'Нед 10', 'Нед 11', 'Нед 12'],
+        labels: dyn.map(d => d.label),
         datasets: [{
           label: 'Часы простоя оборудования',
-          data: [4.5, 2.0, 8.5, 1.5, 6.0, 3.2, 5.0, 7.8, 2.4, 4.0, 1.8, 3.5],
+          data: dyn.map(d => d.downtimeHours),
           borderColor: '#ef4444',
           backgroundColor: 'rgba(239, 68, 68, 0.1)',
           fill: true,
@@ -88,7 +86,6 @@ function renderAnalyticsCharts() {
     });
   }
 
-  // 2. Расход материалов (Bar) - R155
   const matCanvas = document.getElementById('anMaterialsChart');
   if (matCanvas) {
     if (materialsChart) materialsChart.destroy();
@@ -96,11 +93,7 @@ function renderAnalyticsCharts() {
       type: 'bar',
       data: {
         labels: topMaterials.value.map(m => m.name.slice(0, 15) + '...'),
-        datasets: [{
-          label: 'Сумма расхода (₽)',
-          data: topMaterials.value.map(m => m.cost),
-          backgroundColor: '#0284c7'
-        }]
+        datasets: [{ label: 'Сумма расхода (₽)', data: topMaterials.value.map(m => m.cost), backgroundColor: '#0284c7' }]
       },
       options: {
         responsive: true,
@@ -114,17 +107,17 @@ function renderAnalyticsCharts() {
     });
   }
 
-  // 3. Выполнение графика ТО по цехам (Bar) - R156, R170
+  const schList = detailsData.value?.schByWorkshop || [];
   const schCanvas = document.getElementById('anScheduleChart');
   if (schCanvas) {
     if (scheduleChart) scheduleChart.destroy();
     scheduleChart = new Chart(schCanvas, {
       type: 'bar',
       data: {
-        labels: ['ЦРМ (Цех 1)', 'Механический (Цех 2)', 'Литейный (Цех 3)'],
+        labels: schList.map(s => s.workshopName),
         datasets: [
-          { label: 'План ТО', data: [12, 10, 8], backgroundColor: '#334155' },
-          { label: 'Факт выполнено', data: [11, 9, 8], backgroundColor: '#10b981' }
+          { label: 'План ТО', data: schList.map(s => s.planned), backgroundColor: '#334155' },
+          { label: 'Факт выполнено', data: schList.map(s => s.completed), backgroundColor: '#10b981' }
         ]
       },
       options: {
