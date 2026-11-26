@@ -270,8 +270,9 @@ public class WorkOrdersController : ControllerBase
                 wo.DowntimeHours = req.DowntimeHours.Value;
             else
             {
-                var diffHours = (decimal)(wo.ActualEndDate.Value - wo.ActualStartDate.Value).TotalHours;
-                wo.DowntimeHours = Math.Max(0, Math.Round(diffHours, 2));
+                wo.DowntimeHours = wo.ActualEndDate.Value >= wo.ActualStartDate.Value
+                    ? ToirCalculations.CalculateDowntimeHours(wo.ActualStartDate, wo.ActualEndDate)
+                    : 0m;
             }
 
             if (wo.Equipment != null && (wo.Equipment.StatusId == 2 || wo.Equipment.StatusId == 3))

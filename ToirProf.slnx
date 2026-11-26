@@ -5,5 +5,6 @@
     <Project Path="moduleA/src/ToirProf.Blazor/ToirProf.Blazor.csproj" />
     <Project Path="moduleA/src/ToirProf.Desktop/ToirProf.Desktop.csproj" />
     <Project Path="moduleA/src/ToirProf.Domain/ToirProf.Domain.csproj" />
+    <Project Path="moduleA/src/ToirProf.Tests/ToirProf.Tests.csproj" />
   </Folder>
 </Solution>

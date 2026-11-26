@@ -45,7 +45,7 @@ const assignTeamId = ref(null);
 const updateStatusId = ref(null);
 const closeReportText = ref('');
 const closeDowntimeHours = ref(null);
-const selectedMaterialId = ref(null);
+const selectedMaterialKey = ref(null);
 const materialQuantity = ref(1);
 
 async function loadLookups() {
@@ -161,13 +161,14 @@ async function handleUpdateStatus() {
 }
 
 async function handleAddMaterial() {
-  if (!selectedMaterialId.value || materialQuantity.value <= 0) return;
+  if (!selectedMaterialKey.value || materialQuantity.value <= 0) return;
+  const [whId, matId] = String(selectedMaterialKey.value).split('-').map(Number);
   try {
     await api.post(`/work-orders/${selectedOrder.value.workOrderId}/materials`, {
-      materialId: selectedMaterialId.value, quantityUsed: materialQuantity.value
+      warehouseId: whId, materialId: matId, quantityUsed: materialQuantity.value
     });
     toast.success('Материал добавлен к заявке');
-    selectedMaterialId.value = null;
+    selectedMaterialKey.value = null;
     openDetailModal(selectedOrder.value.workOrderId);
   } catch (e) { toast.error(e.message); }
 }
@@ -378,19 +379,21 @@ onMounted(() => { loadLookups(); loadOrders(); });
           <div>
             <div style="font-weight: 700; margin-bottom: 8px; font-size: 13px;">Материалы и запчасти</div>
             <table class="data-table" style="margin-bottom: 10px;">
-              <thead><tr><th>Материал</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead>
+              <thead><tr><th>Материал</th><th>Склад</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead>
               <tbody>
-                <tr v-if="!selectedOrder.materials.length"><td colspan="4" style="text-align: center; color: #94a3b8;">Нет списанных материалов</td></tr>
-                <tr v-for="m in selectedOrder.materials" :key="m.materialId">
-                  <td>{{ m.materialName }}</td><td>{{ m.quantityUsed }} {{ m.unitOfMeasure }}</td>
+                <tr v-if="!selectedOrder.materials.length"><td colspan="5" style="text-align: center; color: #94a3b8;">Нет списанных материалов</td></tr>
+                <tr v-for="m in selectedOrder.materials" :key="`${m.warehouseId}-${m.materialId}`">
+                  <td>{{ m.materialName }}</td><td>{{ m.warehouseName }}</td><td>{{ m.quantityUsed }} {{ m.unitOfMeasure }}</td>
                   <td>{{ m.historicalUnitPrice }} ₽</td><td>{{ m.totalCost }} ₽</td>
                 </tr>
               </tbody>
             </table>
             <div style="display: flex; gap: 8px; background: #0f172a; padding: 10px; border-radius: 8px;">
-              <select v-model="selectedMaterialId" class="form-select" style="flex: 1;">
+              <select v-model="selectedMaterialKey" class="form-select" style="flex: 1;">
                 <option :value="null">-- Выбрать со склада --</option>
-                <option v-for="mat in materialsList" :key="mat.materialId" :value="mat.materialId">{{ mat.materialName }} ({{ mat.currentStock }})</option>
+                <option v-for="mat in materialsList" :key="`${mat.warehouseId}-${mat.materialId}`" :value="`${mat.warehouseId}-${mat.materialId}`">
+                  {{ mat.materialName }} — {{ mat.warehouseName }} ({{ mat.currentStock }})
+                </option>
               </select>
               <input v-model.number="materialQuantity" type="number" min="1" class="form-input" style="width: 70px;" />
               <button class="btn btn-secondary btn-sm" @click="handleAddMaterial">+ Списать</button>
